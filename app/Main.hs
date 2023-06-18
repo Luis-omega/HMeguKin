@@ -2,11 +2,10 @@ module Main where
 
 import qualified Control.Exception (catch)
 
-import Control.Exception.Base (catch)
-import HMeguKin.Parser.Lexer (alexScanTokens)
+import HMeguKin.Parser.Lexer (lexer)
 
 main :: IO ()
 main = do
   putStrLn "Hello, Haskell!"
-  values <- catch (alexScanTokens "_324") (const [])
+  let values = lexer "asdf;asdf"
   print values
