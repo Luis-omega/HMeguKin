@@ -1,5 +1,27 @@
 {
-module HMeguKin.Parser.Lexer (lexer,alexScanTokens) where
+module HMeguKin.Parser.Lexer (lexer,alexScanTokens,Token(..)) where
+
+import HMeguKin.Parser.Types (
+  Operator (
+    NonPrefixedOperator,
+    PrefixedOperator
+  ),
+  Range (Range,
+    columnEnd,
+    columnStart,
+    lineEnd,
+    lineStart,
+    positionEnd,
+    positionStart
+  ),
+  Variable (
+    Capitalized,
+    CapitalizedPrefixed,
+    NonCapitalized,
+    NonCapitalizedPrefixed
+  ),
+ )
+
 }
 
 %wrapper "posn"
@@ -138,19 +160,10 @@ data Token
   | TokenOperator Range Operator
   | LiteralUint Range String
   | TokenVariable Range Variable
+  | EOF
   | LexerError Range Char String
   deriving (Show)
 
-data Variable 
-  = NonCapitalized Range String
-  | NonCapitalizedPrefixed Range String
-  | Capitalized Range String
-  | CapitalizedPrefixed Range String
-  deriving(Show)
-
-data Operator = NonPrefixedOperator Range String
-  | PrefixedOperator Range String
-  deriving(Show)
 
 makeVariableToken constructor pos str = 
   let 
@@ -166,15 +179,6 @@ makeOperatorToken constructor pos str =
   in 
     TokenOperator range var
 
-data Range = Range {
-  lineStart::Int
-  ,lineEnd::Int
-  ,columnStart::Int
-  ,columnEnd::Int
-  ,positionStart::Int
-  ,positionEnd::Int
-  }
-  deriving(Show)
 
 alexPos2Range (AlexPn positionStart lineStart columnStart) str = 
   let columnEnd = columnStart + length str

@@ -1,9 +1,28 @@
 {-# OPTIONS_GHC -fno-warn-unused-binds -fno-warn-missing-signatures #-}
 {-# LANGUAGE CPP #-}
 {-# LINE 1 "Lexer.x" #-}
-module HMeguKin.Parser.Lexer (lexer,alexScanTokens) where
+module HMeguKin.Parser.Lexer (lexer,alexScanTokens,Token(..)) where
 
-import Data.ByteString.Char8 as C8 (pack)
+import HMeguKin.Parser.Types (
+  Operator (
+    NonPrefixedOperator,
+    PrefixedOperator
+  ),
+  Range (Range,
+    columnEnd,
+    columnStart,
+    lineEnd,
+    lineStart,
+    positionEnd,
+    positionStart
+  ),
+  Variable (
+    Capitalized,
+    CapitalizedPrefixed,
+    NonCapitalized,
+    NonCapitalizedPrefixed
+  ),
+ )
 #if __GLASGOW_HASKELL__ >= 603
 #include "ghcconfig.h"
 #elif defined(__GLASGOW_HASKELL__)
@@ -16763,7 +16782,7 @@ alexRightContext IBOX(sc) user__ _ _ input__ =
         -- match when checking the right context, just
         -- the first match will do.
 #endif
-{-# LINE 98 "Lexer.x" #-}
+{-# LINE 120 "Lexer.x" #-}
 -- Each action has type :: String -> Token
 
 -- The token type:
@@ -16806,19 +16825,10 @@ data Token
   | TokenOperator Range Operator
   | LiteralUint Range String
   | TokenVariable Range Variable
+  | EOF
   | LexerError Range Char String
   deriving (Show)
 
-data Variable 
-  = NonCapitalized Range String
-  | NonCapitalizedPrefixed Range String
-  | Capitalized Range String
-  | CapitalizedPrefixed Range String
-  deriving(Show)
-
-data Operator = NonPrefixedOperator Range String
-  | PrefixedOperator Range String
-  deriving(Show)
 
 makeVariableToken constructor pos str = 
   let 
@@ -16834,15 +16844,6 @@ makeOperatorToken constructor pos str =
   in 
     TokenOperator range var
 
-data Range = Range {
-  lineStart::Int
-  ,lineEnd::Int
-  ,columnStart::Int
-  ,columnEnd::Int
-  ,positionStart::Int
-  ,positionEnd::Int
-  }
-  deriving(Show)
 
 alexPos2Range (AlexPn positionStart lineStart columnStart) str = 
   let columnEnd = columnStart + length str
@@ -16870,4 +16871,4 @@ lexer str = go (alexStartPos, '\n', [], str)
         AlexSkip  inp' len     -> go inp'
         AlexToken inp' len act -> (act pos (take len str)) : go inp'
         -- the skiped param is the remaining bytes
-        AlexError (pos,previous,  remain,_) -> [LexerError (alexPos2Range pos remain) previous (C8.pack remain)]
+        AlexError (pos,previous, _,remain) -> [LexerError (alexPos2Range pos []) previous remain]
