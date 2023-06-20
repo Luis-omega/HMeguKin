@@ -4,6 +4,7 @@ module HMeguKin.Parser.Types (
   Variable (..),
   Operator (..),
   IndenterError (..),
+  token2Name,
 ) where
 
 data Range = Range
@@ -17,8 +18,7 @@ data Range = Range
   deriving stock (Show)
 
 data Token
-  = LineBreak Range
-  | Comment Range String
+  = Comment Range String
   | At Range
   | Hole Range
   | Colon Range
@@ -84,3 +84,50 @@ data IndenterError
   | -- if this happen inside a imports, someone tried to import (=)
     MissIndentedAfterEqual Token Token
   deriving stock (Show)
+
+token2Name :: Token -> String
+token2Name token =
+  case token of
+    Comment _ _ -> "Comment"
+    At _ -> "@"
+    Hole _ -> "_"
+    Colon _ -> ":"
+    Equal _ -> "Equal"
+    LambdaStart _ -> "LambdaStart"
+    Pipe _ -> "Pipe"
+    Dot _ -> "Dot"
+    Comma _ -> "Comma"
+    RightArrow _ -> "RightArrow"
+    LeftArrow _ -> "LeftArrow"
+    LeftBrace _ -> "LeftBrace"
+    RightBrace _ -> "RightBrace"
+    LeftBracket _ -> "LeftBracket"
+    RightBracket _ -> "RightBracket"
+    LeftParen _ -> "LeftParen"
+    RightParen _ -> "RightParen"
+    Let _ -> "Let"
+    In _ -> "In"
+    Case _ -> "Case"
+    Of _ -> "Of"
+    Forall _ -> "Forall"
+    Data _ -> "Data"
+    Type _ -> "Type"
+    NewType _ -> "NewType"
+    Module _ -> "Module"
+    Import _ -> "Import"
+    Where _ -> "Where"
+    As _ -> "As"
+    Left_ _ -> "Left_"
+    Right_ _ -> "Right_"
+    None _ -> "None"
+    Unqualified _ -> "Unqualified"
+    OperatorKeyword _ -> "OperatorKeyword"
+    TokenOperator _ _ -> "TokenOperator"
+    LiteralUint _ _ -> "LiteralUint"
+    TokenVariable _ _ -> "TokenVariable"
+    EOF -> "EOF"
+    LexerError _ _ _ -> "LexerError"
+    TokenIndenterError _ _ -> "TokenIndenterError"
+    LayoutStart _ -> "LayoutStart"
+    LayoutEnd _ -> "LayoutEnd"
+    LayoutSeparator _ -> "LayoutSeparator"

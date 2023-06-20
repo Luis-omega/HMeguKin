@@ -68,7 +68,7 @@ $lambdaStart = \
 tokens :-
 
   @spaces                         ;
-  $lineBreak                      {fromPosition LineBreak}
+  $lineBreak                      ;
   @comment                        {makeToken Comment}
   $at                             {fromPosition At}
   $hole                             {fromPosition Hole}
@@ -122,8 +122,7 @@ tokens :-
 
 -- The token type:
 data Token
-  = LineBreak Range
-  | Comment Range String
+  = Comment Range String
   | At Range
   | Hole Range
   | Colon Range

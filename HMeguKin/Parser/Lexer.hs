@@ -16264,7 +16264,6 @@ alex_deflt = listArray (0 :: Int, 124)
 
 alex_accept = listArray (0 :: Int, 124)
   [ AlexAccNone
-  , AlexAcc 105
   , AlexAcc 104
   , AlexAcc 103
   , AlexAcc 102
@@ -16282,8 +16281,8 @@ alex_accept = listArray (0 :: Int, 124)
   , AlexAcc 90
   , AlexAcc 89
   , AlexAcc 88
-  , AlexAccNone
   , AlexAcc 87
+  , AlexAccNone
   , AlexAcc 86
   , AlexAcc 85
   , AlexAcc 84
@@ -16322,11 +16321,12 @@ alex_accept = listArray (0 :: Int, 124)
   , AlexAcc 51
   , AlexAcc 50
   , AlexAcc 49
-  , AlexAccNone
   , AlexAcc 48
   , AlexAccNone
-  , AlexAccSkip
   , AlexAcc 47
+  , AlexAccNone
+  , AlexAccSkip
+  , AlexAccSkip
   , AlexAcc 46
   , AlexAccNone
   , AlexAccNone
@@ -16390,29 +16390,28 @@ alex_accept = listArray (0 :: Int, 124)
   , AlexAcc 0
   ]
 
-alex_actions = array (0 :: Int, 106)
-  [ (105,alex_action_26)
-  , (104,alex_action_39)
-  , (103,alex_action_27)
-  , (102,alex_action_28)
-  , (101,alex_action_39)
-  , (100,alex_action_29)
-  , (99,alex_action_30)
-  , (98,alex_action_39)
-  , (97,alex_action_31)
-  , (96,alex_action_39)
-  , (95,alex_action_32)
-  , (94,alex_action_39)
-  , (93,alex_action_33)
-  , (92,alex_action_34)
-  , (91,alex_action_35)
-  , (90,alex_action_36)
+alex_actions = array (0 :: Int, 105)
+  [ (104,alex_action_26)
+  , (103,alex_action_39)
+  , (102,alex_action_27)
+  , (101,alex_action_28)
+  , (100,alex_action_39)
+  , (99,alex_action_29)
+  , (98,alex_action_30)
+  , (97,alex_action_39)
+  , (96,alex_action_31)
+  , (95,alex_action_39)
+  , (94,alex_action_32)
+  , (93,alex_action_39)
+  , (92,alex_action_33)
+  , (91,alex_action_34)
+  , (90,alex_action_35)
   , (89,alex_action_36)
   , (88,alex_action_36)
-  , (87,alex_action_37)
-  , (86,alex_action_38)
+  , (87,alex_action_36)
+  , (86,alex_action_37)
   , (85,alex_action_38)
-  , (84,alex_action_39)
+  , (84,alex_action_38)
   , (83,alex_action_39)
   , (82,alex_action_39)
   , (81,alex_action_39)
@@ -16446,10 +16445,10 @@ alex_actions = array (0 :: Int, 106)
   , (53,alex_action_39)
   , (52,alex_action_39)
   , (51,alex_action_39)
-  , (50,alex_action_40)
-  , (49,alex_action_41)
-  , (48,alex_action_42)
-  , (47,alex_action_1)
+  , (50,alex_action_39)
+  , (49,alex_action_40)
+  , (48,alex_action_41)
+  , (47,alex_action_42)
   , (46,alex_action_2)
   , (45,alex_action_39)
   , (44,alex_action_39)
@@ -16499,7 +16498,6 @@ alex_actions = array (0 :: Int, 106)
   , (0,alex_action_39)
   ]
 
-alex_action_1 = fromPosition LineBreak
 alex_action_2 = makeToken Comment
 alex_action_3 = fromPosition At
 alex_action_4 = fromPosition Hole
@@ -16787,8 +16785,7 @@ alexRightContext IBOX(sc) user__ _ _ input__ =
 
 -- The token type:
 data Token
-  = LineBreak Range
-  | Comment Range String
+  = Comment Range String
   | At Range
   | Hole Range
   | Colon Range
