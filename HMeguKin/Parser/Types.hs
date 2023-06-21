@@ -5,6 +5,7 @@ module HMeguKin.Parser.Types (
   Operator (..),
   IndenterError (..),
   token2Name,
+  mergeRanges,
 ) where
 
 data Range = Range
@@ -16,6 +17,20 @@ data Range = Range
   , positionEnd :: Int
   }
   deriving stock (Show)
+
+mergeRanges :: Range -> Range -> Range
+mergeRanges range1 range2 =
+  if lineStart range1 >= lineStart range2
+    then
+      Range
+        { lineStart = lineStart range1
+        , lineEnd = lineEnd range2
+        , columnStart = columnStart range1
+        , columnEnd = columnEnd range2
+        , positionStart = positionStart range1
+        , positionEnd = positionEnd range2
+        }
+    else mergeRanges range2 range1
 
 data Token
   = Comment Range String

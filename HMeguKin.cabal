@@ -119,10 +119,13 @@ library
     base ^>=4.17.0.0
     ,array
     ,bytestring^>=0.11.3.1
+    ,split
   exposed-modules: 
     HMeguKin.Parser.Lexer
     HMeguKin.Parser.Types
     HMeguKin.Parser.Indenter
+    HMeguKin.Parser.SST
+    HMeguKin.Parser.Parser
 
 test-suite HMeguKinTest
   import:         common-lang
