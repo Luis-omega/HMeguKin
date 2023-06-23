@@ -22,10 +22,12 @@ import HMeguKin.Parser.SST hiding (LiteralUint)
   RBrace {RightBrace $$}
   Colon {Colon $$}
   Comma {Comma $$}
+  BackTick {BackTick $$}
   LayoutStart {LayoutStart $$}
   LayoutEnd {LayoutEnd $$}
   Operator {TokenOperator _ _}
   RightArrow {RightArrow $$}
+  TokenOperator {TokenOperator _ _}
 
 %%
 
@@ -74,11 +76,6 @@ type_record_item :: {(Range,Variable,Type)}
 type_record_item : type_meta_variable Colon type_expression_inner {
     (getRange ($1,$3),$1,$3)
   }
-  -- this enforces commas to be at the begining of the line, 
-  -- it's a happy accident :)
-  | type_meta_variable Colon LayoutStart type_expression_inner LayoutEnd {
-    (getRange ($1,$4),$1,$4)
-    }
 
 type_record_inner :: {[(Range,Variable,Type)]}
 type_record_inner : type_record_item  {[$1]}
@@ -89,13 +86,17 @@ type_record : RBrace type_record_inner LBrace {
   RecordType (getRange $2) $2
   }
 
--- Shall we allow `a `Either` b` to be `Either a b`?
--- type_operator : TokenOperator {
---   case $1 of 
---     TokenOperator _ op ->
---       case op of
---         NonPrefixedOperator range value
---   }
+type_operator :: {Operator}
+type_operator : TokenOperator {
+  case $1 of 
+    TokenOperator _ op ->
+      lexerOperator2Operator op
+  }
+  | BackTick Variable BackTick {
+    let variable = tokenVariable2Variable $2
+    in
+      VariableAsOperator (getRange variable) variable
+  }
 
 type_variable :: {Type}
 type_variable : type_meta_variable {
@@ -113,17 +114,21 @@ type_application : type_atom {$1}
   ApplicationType (getRange ($2,$1)) $2 $1
   }
 
--- type_operators : (type_application type_operator)* type_application
+type_operators_plus :: {IntercalatedList Type Operator}
+type_operators_plus :  type_application {FirstItem $1}
+  | type_operators_plus type_operator type_application {IntercalatedCons $3 (IntercalatedCons $2 $1)}
+
+type_operators :: {Type}
+type_operators : type_operators_plus {
+  MeaninglessOperatorApplications (getRange $1) $1
+  }
 
 type_expression_inner :: {Type}
-type_expression_inner: type_application {$1}
-  | type_application RightArrow type_expression_inner {TypeArrow (getRange ($1,$3)) $1 $3
+type_expression_inner: type_operators {$1}
+  | type_operators RightArrow type_expression_inner {TypeArrow (getRange ($1,$3)) $1 $3
   }
 
 {-
-
-// made RIGHT_ARROW not to gen a layout here
-type_expression_inner: sep_by1{type_operators,RIGHT_ARROW}
 
 // This forces prenex form at syntax level
 type_scheme :  type_expression_inner

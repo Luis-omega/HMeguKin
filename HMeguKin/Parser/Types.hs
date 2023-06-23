@@ -1,20 +1,21 @@
-module HMeguKin.Parser.Types (
-  Range (..),
-  Token (..),
-  Variable (..),
-  Operator (..),
-  IndenterError (..),
-  token2Name,
-  mergeRanges,
-) where
+module HMeguKin.Parser.Types
+  ( Range (..),
+    Token (..),
+    Variable (..),
+    Operator (..),
+    IndenterError (..),
+    token2Name,
+    mergeRanges,
+  )
+where
 
 data Range = Range
-  { lineStart :: Int
-  , lineEnd :: Int
-  , columnStart :: Int
-  , columnEnd :: Int
-  , positionStart :: Int
-  , positionEnd :: Int
+  { lineStart :: Int,
+    lineEnd :: Int,
+    columnStart :: Int,
+    columnEnd :: Int,
+    positionStart :: Int,
+    positionEnd :: Int
   }
   deriving stock (Show)
 
@@ -23,12 +24,12 @@ mergeRanges range1 range2 =
   if lineStart range1 >= lineStart range2
     then
       Range
-        { lineStart = lineStart range1
-        , lineEnd = lineEnd range2
-        , columnStart = columnStart range1
-        , columnEnd = columnEnd range2
-        , positionStart = positionStart range1
-        , positionEnd = positionEnd range2
+        { lineStart = lineStart range1,
+          lineEnd = lineEnd range2,
+          columnStart = columnStart range1,
+          columnEnd = columnEnd range2,
+          positionStart = positionStart range1,
+          positionEnd = positionEnd range2
         }
     else mergeRanges range2 range1
 
@@ -50,6 +51,7 @@ data Token
   | RightBracket Range
   | LeftParen Range
   | RightParen Range
+  | BackTick Range
   | Let Range
   | In Range
   | Case Range
@@ -120,6 +122,7 @@ token2Name token =
     RightBracket _ -> "RightBracket"
     LeftParen _ -> "LeftParen"
     RightParen _ -> "RightParen"
+    BackTick _ -> "BackTick"
     Let _ -> "Let"
     In _ -> "In"
     Case _ -> "Case"

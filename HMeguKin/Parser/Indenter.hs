@@ -1,31 +1,30 @@
 module HMeguKin.Parser.Indenter (indent) where
 
-import HMeguKin.Parser.Types (
-  IndenterError (..),
-  Operator (
-    NonPrefixedOperator,
-    PrefixedOperator
-  ),
-  Range (
-    Range,
-    columnEnd,
-    columnStart,
-    lineEnd,
-    lineStart,
-    positionEnd,
-    positionStart
-  ),
-  Token (..),
-  Variable (
-    Capitalized,
-    CapitalizedPrefixed,
-    NonCapitalized,
-    NonCapitalizedPrefixed
-  ),
- )
-import HMeguKin.Parser.Types qualified as Types
-
 import HMeguKin.Parser.Lexer qualified as Lexer
+import HMeguKin.Parser.Types
+  ( IndenterError (..),
+    Operator
+      ( NonPrefixedOperator,
+        PrefixedOperator
+      ),
+    Range
+      ( Range,
+        columnEnd,
+        columnStart,
+        lineEnd,
+        lineStart,
+        positionEnd,
+        positionStart
+      ),
+    Token (..),
+    Variable
+      ( Capitalized,
+        CapitalizedPrefixed,
+        NonCapitalized,
+        NonCapitalizedPrefixed
+      ),
+  )
+import HMeguKin.Parser.Types qualified as Types
 
 data LayoutContext
   = IndentAtNextToken {start :: Lexer.Token, next :: Lexer.Token}
@@ -73,6 +72,7 @@ token2Name token =
     Lexer.RightBracket _ -> "RightBracket"
     Lexer.LeftParen _ -> "LeftParen"
     Lexer.RightParen _ -> "RightParen"
+    Lexer.BackTick _ -> "BackTick"
     Lexer.Let _ -> "Let"
     Lexer.In _ -> "In"
     Lexer.Case _ -> "Case"
@@ -118,6 +118,7 @@ token2Range token =
     Lexer.RightBracket range -> range
     Lexer.LeftParen range -> range
     Lexer.RightParen range -> range
+    Lexer.BackTick range -> range
     Lexer.Let range -> range
     Lexer.In range -> range
     Lexer.Case range -> range
@@ -161,6 +162,7 @@ alexToken2token token =
     Lexer.RightBracket range -> RightBracket range
     Lexer.LeftParen range -> LeftParen range
     Lexer.RightParen range -> RightParen range
+    Lexer.BackTick range -> BackTick range
     Lexer.Let range -> Let range
     Lexer.In range -> In range
     Lexer.Case range -> Case range
@@ -204,15 +206,13 @@ makeContextAtNextToken token stream stack =
             then
               if lineStart nextRange > lineStart range
                 then
-                  let
-                    tokenLayout = makeLayout LayoutStart token
-                    layoutContext = IndentAtNextToken{start = token, next = nextToken}
-                   in
-                    (layoutContext : stack, pure tokenLayout)
+                  let tokenLayout = makeLayout LayoutStart token
+                      layoutContext = IndentAtNextToken {start = token, next = nextToken}
+                   in (layoutContext : stack, pure tokenLayout)
                 else (stack, Nothing)
             else
-              ( stack
-              , pure $
+              ( stack,
+                pure $
                   TokenIndenterError range $
                     ContextFirstValueBeforeStart
                       (alexToken2token token)
@@ -230,14 +230,12 @@ makeContextAtRoot token stream stack =
           nextRange = token2Range nextToken
        in if columnStart nextRange > 1
             then
-              let
-                tokenLayout = makeLayout LayoutStart nextToken
-                layoutContext = IndentAtNextToken{start = token, next = nextToken}
-               in
-                (layoutContext : stack, tokenLayout)
+              let tokenLayout = makeLayout LayoutStart nextToken
+                  layoutContext = IndentAtNextToken {start = token, next = nextToken}
+               in (layoutContext : stack, tokenLayout)
             else
-              ( stack
-              , TokenIndenterError range $
+              ( stack,
+                TokenIndenterError range $
                   MissIndentedAfterEqual
                     (alexToken2token token)
                     (alexToken2token nextToken)
@@ -245,21 +243,21 @@ makeContextAtRoot token stream stack =
 
 unwindStack :: [LayoutContext] -> Lexer.Token -> ([LayoutContext], [Token])
 unwindStack stack token = loop stack
- where
-  range = token2Range token
-  loop [] = error "Something wrong happened at unwind"
-  loop (Root : _) = ([Root], [])
-  loop (IndentAtNextToken{next} : xs) =
-    if columnStart range < columnStart (token2Range next)
-      then
-        let (newStack, generatedTokens) = loop xs
-         in (newStack, makeLayout LayoutEnd token : generatedTokens)
-      else (stack, [])
+  where
+    range = token2Range token
+    loop [] = error "Something wrong happened at unwind"
+    loop (Root : _) = ([Root], [])
+    loop (IndentAtNextToken {next} : xs) =
+      if columnStart range < columnStart (token2Range next)
+        then
+          let (newStack, generatedTokens) = loop xs
+           in (newStack, makeLayout LayoutEnd token : generatedTokens)
+        else (stack, [])
 
 genSeparatorIfSameLevel :: [LayoutContext] -> Lexer.Token -> [Token]
 genSeparatorIfSameLevel stack token =
   case stack of
-    (IndentAtNextToken{next} : _) ->
+    (IndentAtNextToken {next} : _) ->
       if columnStart (token2Range next) == columnStart (token2Range token)
         then
           if lineStart (token2Range next) == lineStart (token2Range token)
@@ -290,23 +288,15 @@ indentStep stack stream =
                 makeContextAtRoot token remainStream stack
            in (newStack, remainStream, [alexToken2token token, generatedTokens])
         _ -> (stack, remainStream, [alexToken2token token])
-    (token@(Lexer.Colon _), remainStream) ->
-      case stack of
-        [Root] ->
-          let
-            (newStack, generatedToken) = makeContextAtRoot token remainStream stack
-           in
-            (newStack, remainStream, [alexToken2token token, generatedToken])
-        _ -> regularIndentStepCase token remainStream stack
     (token@(Lexer.Let _), remainStream) ->
       regularIndentStepCase token remainStream stack
     (token@(Lexer.In _), remainStream) ->
       regularIndentStepCase token remainStream stack
+    (token@(Lexer.Case _), remainStream) ->
+      regularIndentStepCase token remainStream stack
     (token@(Lexer.Of _), remainStream) ->
       regularIndentStepCase token remainStream stack
     (token@(Lexer.LambdaStart _), remainStream) ->
-      regularIndentStepCase token remainStream stack
-    (token@(Lexer.Forall _), remainStream) ->
       regularIndentStepCase token remainStream stack
     (token, remainStream) ->
       (stack, remainStream, [alexToken2token token])
@@ -314,23 +304,23 @@ indentStep stack stream =
 indentInner :: Stream -> [Token]
 indentInner EOFStream = [EOF]
 indentInner stream = loop [Root] stream
- where
-  loop :: [LayoutContext] -> Stream -> [Token]
-  loop [Root] EOFStream = []
-  loop (_ : xs) EOFStream = makeLayout LayoutEnd Lexer.EOF : loop xs EOFStream
-  loop stack stream =
-    let (unwindedStack, unwindTokens) = unwindStack stack (peek stream)
-        separatorTokens = genSeparatorIfSameLevel unwindedStack (peek stream)
-        (newLayouts, newStream, tokens) = indentStep unwindedStack stream
-     in unwindTokens
-          ++ separatorTokens
-          ++ if hasErrorToken tokens
-            then tokens
-            else tokens ++ loop newLayouts newStream
+  where
+    loop :: [LayoutContext] -> Stream -> [Token]
+    loop [Root] EOFStream = []
+    loop (_ : xs) EOFStream = makeLayout LayoutEnd Lexer.EOF : loop xs EOFStream
+    loop stack stream =
+      let (unwindedStack, unwindTokens) = unwindStack stack (peek stream)
+          separatorTokens = genSeparatorIfSameLevel unwindedStack (peek stream)
+          (newLayouts, newStream, tokens) = indentStep unwindedStack stream
+       in unwindTokens
+            ++ separatorTokens
+            ++ if hasErrorToken tokens
+              then tokens
+              else tokens ++ loop newLayouts newStream
 
-  hasErrorToken = any aux
-  aux (TokenIndenterError _ _) = True
-  aux _ = False
+    hasErrorToken = any aux
+    aux (TokenIndenterError _ _) = True
+    aux _ = False
 
 indent :: [Lexer.Token] -> [Token]
 indent = indentInner . list2Stream

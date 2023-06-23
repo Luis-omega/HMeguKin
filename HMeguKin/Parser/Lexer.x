@@ -55,6 +55,7 @@ $lambdaStart = \
 @rightBracket = "]"
 @leftParen = "("
 @rightParen = ")"
+@backTick = "`"
 
 @operatorAloneChar = ("+" | "-" | "~" | "/" | "!" | "?" | "¡" | "¿" | "$" | "¬" | ">" | "<" | "%" | "&" | "*")
 @operatorNotAloneCharacter = ("="|"\"|"|")
@@ -86,6 +87,7 @@ tokens :-
   @rightBracket {fromPosition RightBracket}
   @leftParen  {fromPosition LeftParen}
   @rightParen  {fromPosition RightParen}
+  @backTick {fromPosition BackTick}
 
   let {fromPosition Let}
   in {fromPosition In}
@@ -139,6 +141,7 @@ data Token
   | RightBracket Range
   | LeftParen Range
   | RightParen Range
+  | BackTick Range
   | Let Range
   | In Range
   | Case Range

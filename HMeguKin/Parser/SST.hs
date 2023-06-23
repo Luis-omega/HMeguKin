@@ -4,6 +4,7 @@ import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.List.Split (splitOn)
 import Data.Maybe (fromJust)
 import HMeguKin.Parser.Types (Range, mergeRanges)
+import HMeguKin.Parser.Types qualified as Lexer
 import HMeguKin.Parser.Types qualified as Types
 
 class HasRange a where
@@ -28,6 +29,10 @@ data IntercalatedList a b
   = FirstItem a
   | IntercalatedCons a (IntercalatedList b a)
   deriving stock (Show)
+
+instance (HasRange a, HasRange b) => HasRange (IntercalatedList a b) where
+  getRange (FirstItem a) = getRange a
+  getRange (IntercalatedCons a b) = mergeRanges (getRange a) (getRange b)
 
 data Variable
   = PlainLowerCase Range String
@@ -57,6 +62,11 @@ data Operator
   | VariableAsOperator Range Variable
   deriving stock (Show)
 
+instance HasRange Operator where
+  getRange (PlainOperator r _) = r
+  getRange (PrefixedOperator r _ _) = r
+  getRange (VariableAsOperator r _) = r
+
 data Pattern
   = LiteralPattern Range Literal
   | HolePattern Range
@@ -72,7 +82,6 @@ instance HasRange Pattern where
 
 data Type
   = VariableType Range Variable
-  | OperatorType Range Operator
   | RecordType Range [(Range, Variable, Type)]
   | MeaninglessOperatorApplications Range (IntercalatedList Type Operator)
   | ApplicationType Range Type Type
@@ -82,7 +91,6 @@ data Type
 
 instance HasRange Type where
   getRange (VariableType range _) = range
-  getRange (OperatorType range _) = range
   getRange (RecordType range _) = range
   getRange (MeaninglessOperatorApplications range _) = range
   getRange (ApplicationType range _ _) = range
@@ -117,3 +125,10 @@ tokenVariable2Variable (Types.CapitalizedPrefixed range value) =
 tokenLiteral2Literal :: Types.Token -> Literal
 tokenLiteral2Literal (Types.LiteralUint range value) = LiteralUint range value
 tokenLiteral2Literal _ = error "This isn't suppose to happen"
+
+lexerOperator2Operator :: Lexer.Operator -> Operator
+lexerOperator2Operator (Lexer.NonPrefixedOperator range value) =
+  PlainOperator range value
+lexerOperator2Operator (Lexer.PrefixedOperator range value) =
+  let (name, prefix) = fromJust $ splitStringByDot value
+   in PrefixedOperator range prefix name
