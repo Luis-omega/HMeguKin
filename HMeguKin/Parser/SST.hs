@@ -86,7 +86,7 @@ data Type
   | MeaninglessOperatorApplications Range (IntercalatedList Type Operator)
   | ApplicationType Range Type Type
   | TypeArrow Range Type Type
-  | TypeForAll Range (NonEmpty Variable) Type
+  | TypeForall Range (NonEmpty Variable) Type
   deriving stock (Show)
 
 instance HasRange Type where
@@ -95,12 +95,19 @@ instance HasRange Type where
   getRange (MeaninglessOperatorApplications range _) = range
   getRange (ApplicationType range _ _) = range
   getRange (TypeArrow range _ _) = range
-  getRange (TypeForAll range _ _) = range
+  getRange (TypeForall range _ _) = range
 
 data Expression
   = LiteralExpression Range Literal
   | VariableExpression Range Variable
   deriving stock (Show)
+
+data Constructor = Constructor Range Variable [Type]
+
+instance HasRange Constructor where
+  getRange (Constructor r _ _) = r
+
+data DataType = DataType Range Variable [Variable] (NonEmpty Constructor)
 
 splitStringByDot :: String -> Maybe (String, NonEmpty String)
 splitStringByDot value =

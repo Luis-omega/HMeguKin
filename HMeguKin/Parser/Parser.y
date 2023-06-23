@@ -28,13 +28,27 @@ import HMeguKin.Parser.SST hiding (LiteralUint)
   Operator {TokenOperator _ _}
   RightArrow {RightArrow $$}
   TokenOperator {TokenOperator _ _}
+  Forall {Forall $$}
+  Dot {Dot $$}
+  Data {Data $$}
 
 %%
 
-pattern_match_variable : Variable {
-  let variable=(tokenVariable2Variable $1) 
-  in 
-    VariablePattern (getRange variable) variable
+meta_variable :: {Variable}
+meta_variable : Variable {
+  tokenVariable2Variable $1
+  }
+
+meta_variable_plus :: {NonEmpty Variable}
+meta_variable_plus : meta_variable {$1 :| []}
+  | meta_variable_plus meta_variable {cons $2 $1}
+
+meta_variable_star :: {[Variable]}
+meta_variable_star : meta_variable {[$1]}
+  | meta_variable_star meta_variable {$2:$1}
+
+pattern_match_variable : meta_variable {
+    VariablePattern (getRange $1) $1
   }
 
 pattern_match_hole : Hole {HolePattern $1}
@@ -67,13 +81,8 @@ pattern_match_function_args_plus: pattern_match_function_args_plus pattern_match
 
 pattern_match_function_args: pattern_match_function_args_plus {$1}
 
-type_meta_variable :: {Variable}
-type_meta_variable : Variable {
-  tokenVariable2Variable $1
-  }
-
 type_record_item :: {(Range,Variable,Type)}
-type_record_item : type_meta_variable Colon type_expression_inner {
+type_record_item : meta_variable Colon type_expression_inner {
     (getRange ($1,$3),$1,$3)
   }
 
@@ -99,7 +108,7 @@ type_operator : TokenOperator {
   }
 
 type_variable :: {Type}
-type_variable : type_meta_variable {
+type_variable : meta_variable {
   VariableType (getRange $1) $1
               }
 
@@ -128,21 +137,43 @@ type_expression_inner: type_operators {$1}
   | type_operators RightArrow type_expression_inner {TypeArrow (getRange ($1,$3)) $1 $3
   }
 
+type_data_type_args :: {NonEmpty Variable}
+type_data_type_args : meta_variable {$1 :| []}
+  | type_data_type_args meta_variable {cons $2 $1}
+
+type_scheme :: {Type}
+type_scheme :  type_expression_inner {$1}
+  | Forall type_data_type_args Dot type_expression_inner {
+  TypeForall (getRange ($2,$4)) $2 $4
+  }
+
+
+type_expression_inner_sep_comma :: {[Type]}
+type_expression_inner_sep_comma : type_expression_inner  {[$1]}
+  | type_expression_inner_sep_comma Comma type_expression_inner {
+    $3:$1
+  }
+
+data_type_constructor :: {Constructor}
+data_type_constructor : meta_variable {
+    Constructor (getRange $1) $1 [] 
+  }
+  | meta_variable type_expression_inner_sep_comma {
+    Constructor (getRange $1) $1 $2 
+  }
+
+data_type_constructor_plus :: {NonEmpty Constructor}
+data_type_constructor_plus : data_type_constructor {$1:|[]}
+  | data_type_constructor_plus Comma data_type_constructor {
+    cons $3 $1
+  }
+
+data_type :: {DataType}
+data_type : Data meta_variable meta_variable_star data_type_constructor_plus {DataType (getRange ($1,$4)) $2 $3 $4}
+
 {-
 
-// This forces prenex form at syntax level
-type_scheme :  type_expression_inner
-  | FORALL type_data_type_args DOT type_expression_inner -> type_scheme_forall_no_layout
-  | FORALL LAYOUT_START type_data_type_args_layout LAYOUT_END DOT type_expression_inner -> type_scheme_forall_layout
-
-
-type_data_type_args : type_variable+
-
-type_data_type_args_layout : (type_variable [LAYOUT_SEPARATOR])* type_variable
-
-
 -}
-
 
 {
 parseError :: [Token] -> a
