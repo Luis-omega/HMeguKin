@@ -2,13 +2,15 @@ module HMeguKin.Parser.SST where
 
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.List.Split (splitOn)
-
 import Data.Maybe (fromJust)
 import HMeguKin.Parser.Types (Range, mergeRanges)
 import HMeguKin.Parser.Types qualified as Types
 
 class HasRange a where
   getRange :: a -> Range
+
+instance HasRange Range where
+  getRange x = x
 
 instance (HasRange a) => HasRange (NonEmpty a) where
   getRange lst = foldr1 mergeRanges (getRange <$> lst)
@@ -18,6 +20,9 @@ instance (HasRange a) => HasRange [a] where
 
 instance (HasRange a, HasRange b) => HasRange (a, b) where
   getRange (x, y) = mergeRanges (getRange x) (getRange y)
+
+instance (HasRange a, HasRange b, HasRange c) => HasRange (a, b, c) where
+  getRange (x, y, c) = mergeRanges (mergeRanges (getRange x) (getRange y)) (getRange c)
 
 data IntercalatedList a b
   = FirstItem a
@@ -41,13 +46,14 @@ data Literal
   = LiteralUint Range String
   | LiteralString Range String
   deriving stock (Show)
+
 instance HasRange Literal where
   getRange (LiteralUint range _) = range
   getRange (LiteralString range _) = range
 
 data Operator
   = PlainOperator Range String
-  | PrefixedOperator Range String
+  | PrefixedOperator Range (NonEmpty String) String
   | VariableAsOperator Range Variable
   deriving stock (Show)
 
@@ -74,6 +80,15 @@ data Type
   | TypeForAll Range (NonEmpty Variable) Type
   deriving stock (Show)
 
+instance HasRange Type where
+  getRange (VariableType range _) = range
+  getRange (OperatorType range _) = range
+  getRange (RecordType range _) = range
+  getRange (MeaninglessOperatorApplications range _) = range
+  getRange (ApplicationType range _ _) = range
+  getRange (TypeArrow range _ _) = range
+  getRange (TypeForAll range _ _) = range
+
 data Expression
   = LiteralExpression Range Literal
   | VariableExpression Range Variable
@@ -84,12 +99,10 @@ splitStringByDot value =
   case splitOn "." value of
     [] -> Nothing
     xs ->
-      let
-        name = last xs
-       in
-        case init xs of
-          [] -> Nothing
-          (first : remain) -> Just (name, first :| remain)
+      let name = last xs
+       in case init xs of
+            [] -> Nothing
+            (first : remain) -> Just (name, first :| remain)
 
 tokenVariable2Variable :: Types.Variable -> Variable
 tokenVariable2Variable (Types.NonCapitalized range value) = PlainLowerCase range value
