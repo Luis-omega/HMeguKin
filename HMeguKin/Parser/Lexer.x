@@ -117,7 +117,6 @@ tokens :-
   @prefixedVariable {makeVariableToken NonCapitalizedPrefixed}
   @prefixedCapitalized {makeVariableToken CapitalizedPrefixed}
 
--- TODO: Implement Selectors and Type
 
 {
 -- Each action has type :: String -> Token

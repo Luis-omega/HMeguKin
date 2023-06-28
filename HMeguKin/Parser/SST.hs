@@ -112,18 +112,20 @@ instance HasRange CaseCases where
 data Expression
   = LiteralExpression Range Literal
   | VariableExpression Range Variable
-  | RecordExpression Range [(Range, Variable, Expression)]
-  | -- | The Nothing case implies that the variable
-    -- | name must be in scope and is not qualified.
-    RecordUpdate Range [(Range, Variable, Maybe Expression)]
-  | MeaninglessOperatorsExpression Range (IntercalatedList Expression Operator)
-  | ApplicationExpression Range Expression Expression
+  -- | The Nothing case implies that the variable
+  -- | name must be in scope and is not qualified.
+  | RecordExpression Range [(Range, Variable, Maybe Expression)]
+  | RecordUpdate Range (NonEmpty (Range, Variable, Expression))
+  | OperatorInParens Range Operator
+  | AnnotationExpression Range Expression Type
+  | Accessor Range Expression Variable
+  | AccessorFunction Range Variable
+  | TypeArgumentExpression Range Type
   | Lambda Range (NonEmpty Pattern) Expression
   | Let Range (NonEmpty LetBinding) Expression
   | Case Range Expression [CaseCases]
-  | Accessor Range Expression Variable
-  | TypeArgumentExpression Range Type
-  | AnnotationExpression Range Type
+  | MeaninglessOperatorsExpression Range (IntercalatedList Expression Operator)
+  | ApplicationExpression Range Expression Expression
   deriving stock (Show)
 
 instance HasRange Expression where
@@ -131,14 +133,16 @@ instance HasRange Expression where
   getRange (VariableExpression r _) = r
   getRange (RecordExpression r _) = r
   getRange (RecordUpdate r _) = r
-  getRange (MeaninglessOperatorsExpression r _) = r
-  getRange (ApplicationExpression r _ _) = r
+  getRange (OperatorInParens r _ ) = r
+  getRange (AnnotationExpression r _ _) = r
+  getRange (Accessor r _ _) = r
+  getRange (AccessorFunction r _) = r
+  getRange (TypeArgumentExpression r _) = r
   getRange (Lambda r _ _) = r
   getRange (Let r _ _) = r
   getRange (Case r _ _) = r
-  getRange (Accessor r _ _) = r
-  getRange (TypeArgumentExpression r _) = r
-  getRange (AnnotationExpression r _) = r
+  getRange (MeaninglessOperatorsExpression r _) = r
+  getRange (ApplicationExpression r _ _) = r
 
 data Constructor = Constructor Range Variable [Type]
 
