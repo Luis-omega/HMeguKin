@@ -72,7 +72,10 @@ data Pattern
   | HolePattern Range
   | VariablePattern Range Variable
   | ApplicationPattern Range Variable (NonEmpty Pattern)
-  | AnnotationPattern Range Pattern Type
+  | -- (pattern : Type)
+    AnnotationPattern Range Pattern Type
+  | -- (name@pattern)
+    AsPattern Range Variable Pattern
   deriving stock (Show)
 
 instance HasRange Pattern where
@@ -81,6 +84,7 @@ instance HasRange Pattern where
   getRange (VariablePattern range _) = range
   getRange (ApplicationPattern range _ _) = range
   getRange (AnnotationPattern range _ _) = range
+  getRange (AsPattern range _ _) = range
 
 data Type
   = VariableType Range Variable
@@ -151,7 +155,14 @@ data Constructor = Constructor Range Variable [Type]
 instance HasRange Constructor where
   getRange (Constructor r _ _) = r
 
-data DataType = DataType Range Variable [Variable] (NonEmpty Constructor)
+data ModuleStatement
+  = ModuleVariableDeclaration Range Variable Type
+  | ModulePatternDefinition Range (NonEmpty Pattern) Expression
+  | ModuleDataType Range Variable [Variable] (NonEmpty Constructor)
+  | ModuleImports
+  | ModuleExports
+
+data ParsedModule = ParsedModule String [ModuleStatement]
 
 splitStringByDot :: String -> Maybe (String, NonEmpty String)
 splitStringByDot value =

@@ -105,6 +105,7 @@ pattern_annotation :: {Pattern}
 pattern_annotation : LParen pattern_match Colon type_scheme RParen {
   AnnotationPattern (getRange ($1,$5)) $2 $4
   }
+
  
 pattern_match_atom :: {Pattern}
 pattern_match_atom: pattern_match_literal {$1}
@@ -113,13 +114,17 @@ pattern_match_atom: pattern_match_literal {$1}
   | parens(pattern_match) {$1}
   | pattern_annotation {$1}
 
+pattern_as :: {Pattern}
+pattern_as : meta_variable At pattern_match_atom {AsPattern (getRange ($1,$3)) $1 $3}
+  | pattern_match_atom {$1}
+
 pattern_match_application :: {Pattern}
-pattern_match_application: Variable list1(pattern_match_atom) {
+pattern_match_application: Variable list1(pattern_as) {
   let variable=(tokenVariable2Variable $1) 
   in
     ApplicationPattern (getRange(variable,$2)) variable $2 
   }
-  | pattern_match_atom {$1}
+  | pattern_as {$1}
 
 pattern_match :: {Pattern}
 pattern_match : pattern_match_application {$1}
@@ -207,8 +212,8 @@ data_type_constructor_plus : data_type_constructor {$1:|[]}
     cons $3 $1
   }
 
-data_type :: {DataType}
-data_type : Data meta_variable list(meta_variable) data_type_constructor_plus {DataType (getRange ($1,$4)) $2 $3 $4}
+data_type :: {ModuleStatement}
+data_type : Data meta_variable list(meta_variable) data_type_constructor_plus {ModuleDataType (getRange ($1,$4)) $2 $3 $4}
 
 -- __________________ EXPRESSION ____________________________
 
@@ -355,13 +360,6 @@ expression_let: Let LayoutStart expression_let_inside LayoutEnd In LayoutStart e
 
 {-
 
-TODO: Add to the patterns both type anotations "Pattern:Type"
-  and "as" pattern "name@Pattern"
-
-
-
-
-expression: expression_let
 
 -}
 
