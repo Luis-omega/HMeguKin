@@ -110,7 +110,7 @@ instance HasRange Type where
   getRange (TypeArrow range _ _) = range
   getRange (TypeForall range _ _) = range
 
-data LetBinding = LetBinding Range (NonEmpty Pattern) Expression
+data LetBinding = LetBinding Range Pattern Expression
   deriving stock (Show)
 
 instance HasRange LetBinding where
@@ -158,16 +158,39 @@ instance HasRange Expression where
   getRange (Let r _ _) = r
 
 data Constructor = Constructor Range Variable [Type]
+  deriving stock (Show)
 
 instance HasRange Constructor where
   getRange (Constructor r _ _) = r
 
+data OperatorFixity
+  = IsTypeOperator Range
+  | IsTermOperator Range
+  deriving stock (Show)
+
+instance HasRange OperatorFixity where
+  getRange (IsTypeOperator r) = r
+  getRange (IsTermOperator r) = r
+
+data OperatorKind
+  = LeftOperator Range
+  | RightOperator Range
+  | NoneOperator Range
+  deriving stock (Show)
+
+instance HasRange OperatorKind where
+  getRange (LeftOperator r) = r
+  getRange (RightOperator r) = r
+  getRange (NoneOperator r) = r
+
 data ModuleStatement
   = ModuleVariableDeclaration Range Variable Type
-  | ModulePatternDefinition Range (NonEmpty Pattern) Expression
+  | ModulePatternDefinition Range Pattern Expression
   | ModuleDataType Range Variable [Variable] (NonEmpty Constructor)
+  | ModuleOperatorFixity Range Operator OperatorFixity OperatorKind Int
   | ModuleImports
   | ModuleExports
+  deriving stock (Show)
 
 data ParsedModule = ParsedModule String [ModuleStatement]
 

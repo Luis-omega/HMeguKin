@@ -59,6 +59,7 @@ data Token
   | Forall Range
   | Data Range
   | Type Range
+  | Term Range
   | NewType Range
   | Module Range
   | Import Range
@@ -130,6 +131,7 @@ token2Name token =
     Forall _ -> "Forall"
     Data _ -> "Data"
     Type _ -> "Type"
+    Term _ -> "Term"
     NewType _ -> "NewType"
     Module _ -> "Module"
     Import _ -> "Import"

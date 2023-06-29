@@ -10,7 +10,6 @@ import HMeguKin.Parser.Types qualified as Types
 import HMeguKin.Parser.SST hiding (LiteralUint,Case,Let)
 import HMeguKin.Parser.SST qualified as SST
 
-import Debug.Trace(trace)
 }
 
 %name parse
@@ -21,7 +20,7 @@ import Debug.Trace(trace)
 %token
   Variable {TokenVariable _ $$}
   Hole {Hole $$}
-  Int {LiteralUint _ _}
+  UInt {LiteralUint _ _}
   LParen {LeftParen $$}
   RParen {RightParen $$}
   LBrace {LeftBrace $$}
@@ -44,6 +43,12 @@ import Debug.Trace(trace)
   Lambda {LambdaStart $$}
   Let {Let $$}
   In {In $$}
+  OperatorKeyword {OperatorKeyword $$}
+  Type {Type $$}
+  Term {Term $$}
+  Left_ {Left_ $$}
+  Right_ {Right_ $$}
+  None {None $$}
 
 %%
 
@@ -65,8 +70,11 @@ list1(p) : plus(p) {reverse $1}
 
 list(p): star(p) {List.reverse $1}
 
-expression :: {Expression}
-expression : expression_let {$1}
+module_statement :: {ModuleStatement}
+module_statement : data_type {$1}
+  | variable_declaration {$1}
+  | pattern_declaration {$1}
+  | operator_fixity {$1}
 
 
 meta_variable :: {Variable}
@@ -97,7 +105,7 @@ pattern_match_hole :: {Pattern}
 pattern_match_hole : Hole {HolePattern $1}
 
 pattern_match_literal :: {Pattern}
-pattern_match_literal: Int { 
+pattern_match_literal: UInt { 
   let literal=(tokenLiteral2Literal $1) 
   in 
     LiteralPattern (getRange literal) literal
@@ -130,9 +138,6 @@ pattern_match_application: Variable list1(pattern_as) {
 
 pattern_match :: {Pattern}
 pattern_match : pattern_match_application {$1}
-
-pattern_match_function_args :: {NonEmpty Pattern}
-pattern_match_function_args: list1(pattern_match) {$1}
 
 -- __________________ TYPE ____________________________
 
@@ -219,7 +224,7 @@ data_type : Data meta_variable list(meta_variable) data_type_constructor_plus {M
 -- __________________ EXPRESSION ____________________________
 
 expression_literal :: {Expression}
-expression_literal: Int { 
+expression_literal: UInt { 
   let literal=(tokenLiteral2Literal $1) 
   in 
     LiteralExpression (getRange literal) literal
@@ -284,6 +289,7 @@ expression_atom: expression_variable {$1}
   | expression_record_update {$1}
   | expression_operator_parens {$1}
   | expression_type_arg {$1}
+  | expression_accessor {$1}
   -- expression_annotation can return a simple expression
   | parens(expression_annotation) {$1}
 
@@ -299,7 +305,7 @@ expression_operators_plus :  expression_application {FirstItem $1}
 
 expression_operators :: {Expression}
 expression_operators : expression_operators_plus {
-  MeaninglessOperatorsExpression (trace (show $1) (getRange $1)) $1
+  MeaninglessOperatorsExpression  (getRange $1) $1
   }
 
 expression_case_single :: {CaseCase}
@@ -329,7 +335,7 @@ expression_lambda : Lambda expression_lambda_arguments RightArrow expression
   | expression_case {$1}
 
 expression_let_binding :: {LetBinding}
-expression_let_binding: listSepBy1(pattern_match,Comma) Equal expression {
+expression_let_binding: pattern_match Equal expression {
   LetBinding (getRange ($1,$3)) $1 $3
   }
 
@@ -355,9 +361,39 @@ expression_let: Let LayoutStart expression_let_inside LayoutEnd In LayoutStart e
   }
   | expression_lambda {$1}
 
+expression :: {Expression}
+expression : expression_let {$1}
 
-{-
--}
+
+variable_declaration :: {ModuleStatement}
+variable_declaration : meta_variable Colon LayoutStart type_scheme LayoutEnd {
+  ModuleVariableDeclaration (getRange ($1,$4)) $1 $4
+  }
+
+pattern_declaration :: {ModuleStatement}
+pattern_declaration : pattern_match Equal LayoutStart expression LayoutEnd {
+  ModulePatternDefinition (getRange ($1,$4)) $1 $4
+  }
+
+fixity :: {OperatorFixity}
+fixity : Type {IsTypeOperator (getRange $1)} | Term {IsTypeOperator(getRange $1)}
+
+precedence :: {OperatorKind}
+precedence : Left_ {LeftOperator(getRange $1)} | Right_ {RightOperator(getRange $1)} | None {NoneOperator(getRange $1)} 
+
+operator_fixity :: {ModuleStatement}
+operator_fixity : OperatorKeyword TokenOperator fixity precedence  UInt {
+  case $5 of 
+    Types.LiteralUint r v -> 
+      case $2 of 
+        TokenOperator _ op ->
+          let op' = lexerOperator2Operator op
+          in
+            ModuleOperatorFixity (getRange ($1,r)) op' $3 $4 (read v)
+    _ -> error "This can't happend"
+                                                                  }
+
+-- TODO: Add operators a constructor and add it to patterns
 
 {
 parseError :: ([Token],[String]) -> a

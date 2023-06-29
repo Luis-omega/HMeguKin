@@ -80,6 +80,7 @@ token2Name token =
     Lexer.Forall _ -> "Forall"
     Lexer.Data _ -> "Data"
     Lexer.Type _ -> "Type"
+    Lexer.Term _ -> "Term"
     Lexer.NewType _ -> "NewType"
     Lexer.Module _ -> "Module"
     Lexer.Import _ -> "Import"
@@ -126,6 +127,7 @@ token2Range token =
     Lexer.Forall range -> range
     Lexer.Data range -> range
     Lexer.Type range -> range
+    Lexer.Term range -> range
     Lexer.NewType range -> range
     Lexer.Module range -> range
     Lexer.Import range -> range
@@ -170,6 +172,7 @@ alexToken2token token =
     Lexer.Forall range -> Forall range
     Lexer.Data range -> Data range
     Lexer.Type range -> Type range
+    Lexer.Term range -> Term range
     Lexer.NewType range -> NewType range
     Lexer.Module range -> Module range
     Lexer.Import range -> Import range
@@ -282,6 +285,13 @@ indentStep stack stream =
   case consume stream of
     (Lexer.EOF, _) -> (stack, stream, [EOF])
     (token@(Lexer.Equal _), remainStream) ->
+      case stack of
+        [Root] ->
+          let (newStack, generatedTokens) =
+                makeContextAtRoot token remainStream stack
+           in (newStack, remainStream, [alexToken2token token, generatedTokens])
+        _ -> (stack, remainStream, [alexToken2token token])
+    (token@(Lexer.Colon _), remainStream) ->
       case stack of
         [Root] ->
           let (newStack, generatedTokens) =

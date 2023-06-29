@@ -96,6 +96,7 @@ tokens :-
   forall {fromPosition Forall}
   data {fromPosition Data}
   type {fromPosition Type}
+  term {fromPosition Term}
   newtype {fromPosition NewType}
   module {fromPosition Module}
   import {fromPosition Import}
@@ -148,6 +149,7 @@ data Token
   | Forall Range
   | Data Range
   | Type Range
+  | Term Range
   | NewType Range
   | Module Range
   | Import Range
