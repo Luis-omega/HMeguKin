@@ -9,6 +9,8 @@ import HMeguKin.Parser.Types(Token(..),Range)
 import HMeguKin.Parser.Types qualified as Types
 import HMeguKin.Parser.SST hiding (LiteralUint,Case,Let)
 import HMeguKin.Parser.SST qualified as SST
+
+import Debug.Trace(trace)
 }
 
 %name parse
@@ -139,13 +141,12 @@ type_record_item : meta_variable Colon type_expression_inner {
     (getRange ($1,$3),$1,$3)
   }
 
-type_record_inner :: {[(Range,Variable,Type)]}
-type_record_inner : type_record_item  {[$1]}
-  | type_record_inner Comma type_record_item {$3:$1}
+type_record_inner :: {NonEmpty(Range,Variable,Type)}
+type_record_inner : listSepBy1(type_record_item,Comma)  {$1}
 
 type_record :: {Type}
 type_record : braces(type_record_inner) {
-  RecordType (getRange $1) (List.reverse $1)
+  RecordType (getRange $1) (NonEmptyRecord (getRange $1) $1)
   }
 
 
@@ -233,20 +234,16 @@ expression_record_item : meta_variable Colon expression {
   }
   | meta_variable {((getRange $1),$1,Nothing)}
 
-expression_record_inner_plus :: {[(Range,Variable,Maybe Expression)]}
-expression_record_inner_plus : expression_record_item {[$1]}
-  | expression_record_inner Comma expression_record_item {$3:$1}
-
-expression_record_inner :: {[(Range,Variable,Maybe Expression)]}
-expression_record_inner : expression_record_inner_plus {List.reverse $1}
+expression_record_inner :: {NonEmpty (Range,Variable,Maybe Expression)}
+expression_record_inner : listSepBy1(expression_record_item,Comma) {$1}
 
 expression_record :: {Expression}
 expression_record : braces(expression_record_inner) {
-  let (range::Range) =  getRange ((\ (r,_,_)->r) <\$> $1)
-  in
-    RecordExpression range $1
+    let range = getRange \$ (\ (x,_,_) -> x ) <\$> $1 
+    in
+    RecordExpression range (NonEmptyRecord range $1)
   }
-  | LBrace RBrace {RecordExpression (getRange ($1,$2)) [] }
+  | LBrace RBrace {RecordExpression (getRange ($1,$2)) (EmptyRecord (getRange ($1,$2))) }
 
 expression_record_update_item::{(Range,Variable,Expression)}
 expression_record_update_item : meta_variable Equal expression {
@@ -257,7 +254,7 @@ expression_record_update_inner :: {NonEmpty (Range,Variable,Expression)}
 expression_record_update_inner : listSepBy1(expression_record_update_item,Comma) {$1}
 
 expression_record_update :: {Expression}
-expression_record_update :  braces(expression_record_update_inner) {RecordUpdate (getRange $1) $1}
+expression_record_update :  braces(expression_record_update_inner) {RecordUpdate (getRange $1) (NonEmptyRecord (getRange $1) $1)}
 
 expression_operator_parens :: {Expression}
 expression_operator_parens: parens(meta_operator)
@@ -291,9 +288,10 @@ expression_atom: expression_variable {$1}
   | parens(expression_annotation) {$1}
 
 expression_application :: {Expression}
-expression_application: expression_atom list(expression_atom){
+expression_application: expression_atom list1(expression_atom){
   ApplicationExpression (getRange ($1,$2)) $1 $2
 }
+  | expression_atom {$1}
 
 expression_operators_plus :: {IntercalatedList Expression Operator}
 expression_operators_plus :  expression_application {FirstItem $1}
@@ -301,7 +299,7 @@ expression_operators_plus :  expression_application {FirstItem $1}
 
 expression_operators :: {Expression}
 expression_operators : expression_operators_plus {
-  MeaninglessOperatorsExpression (getRange $1) $1
+  MeaninglessOperatorsExpression (trace (show $1) (getRange $1)) $1
   }
 
 expression_case_single :: {CaseCase}
@@ -359,8 +357,6 @@ expression_let: Let LayoutStart expression_let_inside LayoutEnd In LayoutStart e
 
 
 {-
-
-
 -}
 
 {

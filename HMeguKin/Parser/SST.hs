@@ -3,20 +3,18 @@ module HMeguKin.Parser.SST where
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.List.Split (splitOn)
 import Data.Maybe (fromJust)
+import GHC.Stack (HasCallStack)
 import HMeguKin.Parser.Types (Range, mergeRanges)
 import HMeguKin.Parser.Types qualified as Lexer
 import HMeguKin.Parser.Types qualified as Types
 
 class HasRange a where
-  getRange :: a -> Range
+  getRange :: (HasCallStack) => a -> Range
 
 instance HasRange Range where
   getRange x = x
 
 instance (HasRange a) => HasRange (NonEmpty a) where
-  getRange lst = foldr1 mergeRanges (getRange <$> lst)
-
-instance (HasRange a) => HasRange [a] where
   getRange lst = foldr1 mergeRanges (getRange <$> lst)
 
 instance (HasRange a, HasRange b) => HasRange (a, b) where
@@ -86,9 +84,18 @@ instance HasRange Pattern where
   getRange (AnnotationPattern range _ _) = range
   getRange (AsPattern range _ _) = range
 
+data MetaRecord a
+  = EmptyRecord Range
+  | NonEmptyRecord Range (NonEmpty (Range, Variable, a))
+  deriving stock (Show)
+
+instance HasRange (MetaRecord a) where
+  getRange (EmptyRecord r) = r
+  getRange (NonEmptyRecord r _) = r
+
 data Type
   = VariableType Range Variable
-  | RecordType Range [(Range, Variable, Type)]
+  | RecordType Range (MetaRecord Type)
   | MeaninglessOperatorsType Range (IntercalatedList Type Operator)
   | ApplicationType Range Type Type
   | TypeArrow Range Type Type
@@ -120,14 +127,14 @@ data Expression
   | VariableExpression Range Variable
   | -- | The Nothing case implies that the variable
     -- | name must be in scope and is not qualified.
-    RecordExpression Range [(Range, Variable, Maybe Expression)]
-  | RecordUpdate Range (NonEmpty (Range, Variable, Expression))
+    RecordExpression Range (MetaRecord (Maybe Expression))
+  | RecordUpdate Range (MetaRecord Expression)
   | OperatorInParens Range Operator
   | AnnotationExpression Range Expression Type
   | TypeArgumentExpression Range Type
   | Accessor Range Expression Variable
   | AccessorFunction Range Variable
-  | ApplicationExpression Range Expression [Expression]
+  | ApplicationExpression Range Expression (NonEmpty Expression)
   | MeaninglessOperatorsExpression Range (IntercalatedList Expression Operator)
   | Case Range Expression (NonEmpty CaseCase)
   | Lambda Range (NonEmpty Pattern) Expression
