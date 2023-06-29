@@ -7,7 +7,8 @@ import Prelude hiding(reverse)
 
 import HMeguKin.Parser.Types(Token(..),Range) 
 import HMeguKin.Parser.Types qualified as Types
-import HMeguKin.Parser.SST hiding (LiteralUint)
+import HMeguKin.Parser.SST hiding (LiteralUint,Case,Let)
+import HMeguKin.Parser.SST qualified as SST
 }
 
 %name parse
@@ -27,6 +28,7 @@ import HMeguKin.Parser.SST hiding (LiteralUint)
   Comma {Comma $$}
   BackTick {BackTick $$}
   LayoutStart {LayoutStart $$}
+  LayoutSeparator {LayoutSeparator $$}
   LayoutEnd {LayoutEnd $$}
   RightArrow {RightArrow $$}
   TokenOperator {TokenOperator _ _}
@@ -35,6 +37,11 @@ import HMeguKin.Parser.SST hiding (LiteralUint)
   Data {Data $$}
   Equal {Equal $$}
   At {At $$}
+  Case {Case $$}
+  Of {Of $$}
+  Lambda {LambdaStart $$}
+  Let {Let $$}
+  In {In $$}
 
 %%
 
@@ -56,11 +63,9 @@ list1(p) : plus(p) {reverse $1}
 
 list(p): star(p) {List.reverse $1}
 
-type_scheme :: {Type}
-type_scheme :  type_expression_inner {$1}
-  | Forall type_data_type_args Dot type_expression_inner {
-  TypeForall (getRange ($2,$4)) $2 $4
-  }
+expression :: {Expression}
+expression : expression_let {$1}
+
 
 meta_variable :: {Variable}
 meta_variable : Variable {
@@ -81,23 +86,34 @@ meta_operator : TokenOperator {
 
 -- __________________ PATTERN ____________________________
 
+pattern_match_variable :: {Pattern}
 pattern_match_variable : meta_variable {
     VariablePattern (getRange $1) $1
   }
 
+pattern_match_hole :: {Pattern}
 pattern_match_hole : Hole {HolePattern $1}
 
+pattern_match_literal :: {Pattern}
 pattern_match_literal: Int { 
   let literal=(tokenLiteral2Literal $1) 
   in 
     LiteralPattern (getRange literal) literal
   }
+
+pattern_annotation :: {Pattern}
+pattern_annotation : LParen pattern_match Colon type_scheme RParen {
+  AnnotationPattern (getRange ($1,$5)) $2 $4
+  }
  
+pattern_match_atom :: {Pattern}
 pattern_match_atom: pattern_match_literal {$1}
   | pattern_match_variable {$1}
   | pattern_match_hole {$1}
-  | LParen pattern_match RParen {$2}
+  | parens(pattern_match) {$1}
+  | pattern_annotation {$1}
 
+pattern_match_application :: {Pattern}
 pattern_match_application: Variable list1(pattern_match_atom) {
   let variable=(tokenVariable2Variable $1) 
   in
@@ -105,8 +121,10 @@ pattern_match_application: Variable list1(pattern_match_atom) {
   }
   | pattern_match_atom {$1}
 
+pattern_match :: {Pattern}
 pattern_match : pattern_match_application {$1}
 
+pattern_match_function_args :: {NonEmpty Pattern}
 pattern_match_function_args: list1(pattern_match) {$1}
 
 -- __________________ TYPE ____________________________
@@ -156,11 +174,15 @@ type_expression_inner: type_operators {$1}
   | type_operators RightArrow type_expression_inner {TypeArrow (getRange ($1,$3)) $1 $3
   }
 
+type_scheme :: {Type}
+type_scheme :  type_expression_inner {$1}
+  | Forall type_data_type_args Dot type_expression_inner {
+  TypeForall (getRange ($2,$4)) $2 $4
+  }
+
 type_data_type_args :: {NonEmpty Variable}
 type_data_type_args : meta_variable {$1 :| []}
   | type_data_type_args meta_variable {cons $2 $1}
-
-
 
 type_expression_inner_sep_comma :: {[Type]}
 type_expression_inner_sep_comma : type_expression_inner  {[$1]}
@@ -240,25 +262,96 @@ expression_annotation :: {Expression}
 expression_annotation: expression {$1}
   | expression Colon type_scheme {AnnotationExpression (getRange ($1,$3)) $1 $3}
 
+expression_type_arg :: {Expression}
+expression_type_arg : At type_atom {TypeArgumentExpression (getRange ($1,$2)) $2}
+
+expression_accessor_field :: {Expression}
+expression_accessor_field: expression Dot meta_variable {Accessor (getRange ($1,$3)) $1 $3}
+
+expression_accessor_funtion :: {Expression}
+expression_accessor_funtion : Hole Dot meta_variable {AccessorFunction (getRange ($1,$3)) $3}
+
+expression_accessor :: {Expression}
+expression_accessor : expression_accessor_field {$1}
+  | expression_accessor_funtion {$1}
+
 expression_atom :: {Expression}
 expression_atom: expression_variable {$1}
   | expression_literal {$1}
   | expression_record {$1}
   | expression_record_update {$1}
   | expression_operator_parens {$1}
+  | expression_type_arg {$1}
   -- expression_annotation can return a simple expression
   | parens(expression_annotation) {$1}
 
-expression_accessor :: {Expression}
-expression_accessor: expression Dot meta_variable {Accessor (getRange ($1,$3)) $1 $3}
+expression_application :: {Expression}
+expression_application: expression_atom list(expression_atom){
+  ApplicationExpression (getRange ($1,$2)) $1 $2
+}
 
-expression_accessor_funtion :: {Expression}
-expression_accessor_funtion : Hole Dot meta_variable {AccessorFunction (getRange ($1,$3)) $3}
+expression_operators_plus :: {IntercalatedList Expression Operator}
+expression_operators_plus :  expression_application {FirstItem $1}
+  | expression_operators_plus meta_operator expression_application {IntercalatedCons $3 (IntercalatedCons $2 $1)}
 
-expression_type_arg :: {Expression}
-expression_type_arg : At type_atom {TypeArgumentExpression (getRange ($1,$2)) $2}
+expression_operators :: {Expression}
+expression_operators : expression_operators_plus {
+  MeaninglessOperatorsExpression (getRange $1) $1
+  }
 
-expression : expression_literal {$1}
+expression_case_single :: {CaseCase}
+expression_case_single : pattern_match RightArrow expression {
+  CaseCase (getRange ($1,$3)) $1 $3
+  }
+  | pattern_match RightArrow  LayoutStart expression LayoutEnd{
+  CaseCase (getRange ($1,$4)) $1 $4
+}
+
+expression_case_cases :: {NonEmpty CaseCase}
+expression_case_cases : listSepBy1(expression_case_single,LayoutSeparator) {$1}
+
+expression_case :: {Expression}
+expression_case: Case expression Of expression_case_cases {SST.Case (getRange ($1,$4)) $2 $4}
+  | Case LayoutStart expression LayoutEnd Of expression_case_cases  {SST.Case (getRange ($1,$6)) $3 $6}
+  | Case expression Of LayoutStart expression_case_cases  LayoutEnd {SST.Case (getRange ($1,$5)) $2 $5}
+  | Case LayoutStart expression LayoutEnd Of LayoutStart expression_case_cases LayoutEnd {SST.Case (getRange ($1,$7)) $3 $7}
+  | expression_operators {$1}
+
+expression_lambda_arguments :: {NonEmpty Pattern}
+expression_lambda_arguments: listSepBy1(pattern_match,Comma) {$1}
+
+expression_lambda :: {Expression}
+expression_lambda : Lambda expression_lambda_arguments RightArrow expression 
+  {Lambda (getRange ($1,$4)) $2 $4}
+  | expression_case {$1}
+
+expression_let_binding :: {LetBinding}
+expression_let_binding: listSepBy1(pattern_match,Comma) Equal expression {
+  LetBinding (getRange ($1,$3)) $1 $3
+  }
+
+expression_let_inside :: {NonEmpty LetBinding}
+expression_let_inside: listSepBy1(expression_let_binding,LayoutSeparator) {$1}
+
+expression_let :: {Expression}
+expression_let: Let LayoutStart expression_let_inside LayoutEnd In LayoutStart expression LayoutEnd 
+  {
+    SST.Let (getRange ($1,$7)) $3 $7
+  }
+  | Let LayoutStart expression_let_inside LayoutEnd In expression
+  {
+    SST.Let (getRange ($1,$6)) $3 $6
+  }
+  | Let expression_let_binding In LayoutStart expression LayoutEnd
+  {
+    SST.Let (getRange ($1,$5)) ($2 :|[]) $5
+  }
+  | Let expression_let_binding In expression
+  {
+    SST.Let (getRange ($1,$4)) ($2 :| []) $4
+  }
+  | expression_lambda {$1}
+
 
 {-
 
@@ -266,40 +359,7 @@ TODO: Add to the patterns both type anotations "Pattern:Type"
   and "as" pattern "name@Pattern"
 
 
-expression_application: expression_selector (expression_selector | expression_type_arg)*
 
-expression_operators: (expression_application expression_operator)* expression_application
-
-expression_case_single : pattern_match RIGHT_ARROW expression
-  | pattern_match RIGHT_ARROW  LAYOUT_START expression LAYOUT_END -> expression_case_single_layout
-
-expression_case_cases : sep_by1{expression_case_single,LAYOUT_SEPARATOR}
-
-expression_case: CASE expression OF expression_case_cases 
-  | CASE LAYOUT_START expression LAYOUT_END OF expression_case_cases  -> expression_case_2
-  | CASE expression OF LAYOUT_START expression_case_cases  LAYOUT_END -> expression_case_3
-  | CASE LAYOUT_START expression LAYOUT_END OF LAYOUT_START expression_case_cases LAYOUT_END -> expression_case_4
-  | expression_operators -> expression_case_operators
-
-expression_lambda_arguments: pattern_match+
-
-expression_lambda : LAMBDA expression_lambda_arguments RIGHT_ARROW expression
-  | LAMBDA LAYOUT_START expression_lambda_arguments LAYOUT_END RIGHT_ARROW expression -> expression_lambda_2
-  | LAMBDA expression_lambda_arguments RIGHT_ARROW LAYOUT_START expression LAYOUT_END -> expression_lambda_3
-  | LAMBDA LAYOUT_START expression_lambda_arguments LAYOUT_END RIGHT_ARROW LAYOUT_START expression LAYOUT_END -> expression_lambda_4
-  | expression_case -> expression_lambda_case
-
-// TODO: Put more pattern_matches!
-expression_let_binding: pattern_match EQUAL expression
-
-expression_let_inside: sep_by1{expression_let_binding,LAYOUT_SEPARATOR}
-
-expression_let: LET LAYOUT_START expression_let_inside LAYOUT_END IN LAYOUT_START expression LAYOUT_END 
-  | LET LAYOUT_START expression_let_inside LAYOUT_END IN expression  -> expression_let_2
-  // the use of expression_let_binding improves parser errors
-  | LET expression_let_binding IN LAYOUT_START expression LAYOUT_END-> expression_let_3
-  | LET expression_let_binding IN expression -> expression_let_4
-  | expression_lambda -> expression_let_lambda
 
 expression: expression_let
 

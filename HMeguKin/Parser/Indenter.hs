@@ -296,8 +296,6 @@ indentStep stack stream =
       regularIndentStepCase token remainStream stack
     (token@(Lexer.Of _), remainStream) ->
       regularIndentStepCase token remainStream stack
-    (token@(Lexer.LambdaStart _), remainStream) ->
-      regularIndentStepCase token remainStream stack
     (token, remainStream) ->
       (stack, remainStream, [alexToken2token token])
 

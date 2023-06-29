@@ -72,6 +72,7 @@ data Pattern
   | HolePattern Range
   | VariablePattern Range Variable
   | ApplicationPattern Range Variable (NonEmpty Pattern)
+  | AnnotationPattern Range Pattern Type
   deriving stock (Show)
 
 instance HasRange Pattern where
@@ -79,6 +80,7 @@ instance HasRange Pattern where
   getRange (HolePattern range) = range
   getRange (VariablePattern range _) = range
   getRange (ApplicationPattern range _ _) = range
+  getRange (AnnotationPattern range _ _) = range
 
 data Type
   = VariableType Range Variable
@@ -97,35 +99,35 @@ instance HasRange Type where
   getRange (TypeArrow range _ _) = range
   getRange (TypeForall range _ _) = range
 
-data LetBinding = LetBinding Range Variable [Pattern] Expression
+data LetBinding = LetBinding Range (NonEmpty Pattern) Expression
   deriving stock (Show)
 
 instance HasRange LetBinding where
-  getRange (LetBinding r _ _ _) = r
+  getRange (LetBinding r _ _) = r
 
-data CaseCases = CaseCase Range Pattern Expression
+data CaseCase = CaseCase Range Pattern Expression
   deriving stock (Show)
 
-instance HasRange CaseCases where
+instance HasRange CaseCase where
   getRange (CaseCase r _ _) = r
 
 data Expression
   = LiteralExpression Range Literal
   | VariableExpression Range Variable
-  -- | The Nothing case implies that the variable
-  -- | name must be in scope and is not qualified.
-  | RecordExpression Range [(Range, Variable, Maybe Expression)]
+  | -- | The Nothing case implies that the variable
+    -- | name must be in scope and is not qualified.
+    RecordExpression Range [(Range, Variable, Maybe Expression)]
   | RecordUpdate Range (NonEmpty (Range, Variable, Expression))
   | OperatorInParens Range Operator
   | AnnotationExpression Range Expression Type
+  | TypeArgumentExpression Range Type
   | Accessor Range Expression Variable
   | AccessorFunction Range Variable
-  | TypeArgumentExpression Range Type
+  | ApplicationExpression Range Expression [Expression]
+  | MeaninglessOperatorsExpression Range (IntercalatedList Expression Operator)
+  | Case Range Expression (NonEmpty CaseCase)
   | Lambda Range (NonEmpty Pattern) Expression
   | Let Range (NonEmpty LetBinding) Expression
-  | Case Range Expression [CaseCases]
-  | MeaninglessOperatorsExpression Range (IntercalatedList Expression Operator)
-  | ApplicationExpression Range Expression Expression
   deriving stock (Show)
 
 instance HasRange Expression where
@@ -133,16 +135,16 @@ instance HasRange Expression where
   getRange (VariableExpression r _) = r
   getRange (RecordExpression r _) = r
   getRange (RecordUpdate r _) = r
-  getRange (OperatorInParens r _ ) = r
+  getRange (OperatorInParens r _) = r
   getRange (AnnotationExpression r _ _) = r
+  getRange (TypeArgumentExpression r _) = r
   getRange (Accessor r _ _) = r
   getRange (AccessorFunction r _) = r
-  getRange (TypeArgumentExpression r _) = r
+  getRange (ApplicationExpression r _ _) = r
+  getRange (MeaninglessOperatorsExpression r _) = r
+  getRange (Case r _ _) = r
   getRange (Lambda r _ _) = r
   getRange (Let r _ _) = r
-  getRange (Case r _ _) = r
-  getRange (MeaninglessOperatorsExpression r _) = r
-  getRange (ApplicationExpression r _ _) = r
 
 data Constructor = Constructor Range Variable [Type]
 
