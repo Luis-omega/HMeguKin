@@ -1,7 +1,7 @@
 {
 module HMeguKin.Parser.Parser(parse) where
 
-import Data.List.NonEmpty(NonEmpty((:|)),cons,reverse)
+import Data.List.NonEmpty(NonEmpty((:|)),cons,reverse,toList,uncons,singleton)
 import Data.List qualified as List
 import Prelude hiding(reverse)
 
@@ -49,6 +49,7 @@ import HMeguKin.Parser.SST qualified as SST
   Left_ {Left_ $$}
   Right_ {Right_ $$}
   None {None $$}
+  Pipe {Pipe $$}
 
 %%
 
@@ -213,13 +214,11 @@ data_type_constructor : meta_variable {
   }
 
 data_type_constructor_plus :: {NonEmpty Constructor}
-data_type_constructor_plus : data_type_constructor {$1:|[]}
-  | data_type_constructor_plus Comma data_type_constructor {
-    cons $3 $1
-  }
+data_type_constructor_plus : listSepBy1(data_type_constructor,Pipe){$1}
 
 data_type :: {ModuleStatement}
-data_type : Data meta_variable list(meta_variable) data_type_constructor_plus {ModuleDataType (getRange ($1,$4)) $2 $3 $4}
+data_type : Data meta_variable list1(meta_variable) Equal data_type_constructor_plus {ModuleDataType (getRange ($1,$5)) $2 (toList $3) $5}
+  | Data meta_variable  Equal data_type_constructor_plus {ModuleDataType (getRange ($1,$4)) $2 [] $4}
 
 -- __________________ EXPRESSION ____________________________
 
@@ -272,15 +271,6 @@ expression_annotation: expression {$1}
 expression_type_arg :: {Expression}
 expression_type_arg : At type_atom {TypeArgumentExpression (getRange ($1,$2)) $2}
 
-expression_accessor_field :: {Expression}
-expression_accessor_field: expression Dot meta_variable {Accessor (getRange ($1,$3)) $1 $3}
-
-expression_accessor_funtion :: {Expression}
-expression_accessor_funtion : Hole Dot meta_variable {AccessorFunction (getRange ($1,$3)) $3}
-
-expression_accessor :: {Expression}
-expression_accessor : expression_accessor_field {$1}
-  | expression_accessor_funtion {$1}
 
 expression_atom :: {Expression}
 expression_atom: expression_variable {$1}
@@ -289,15 +279,27 @@ expression_atom: expression_variable {$1}
   | expression_record_update {$1}
   | expression_operator_parens {$1}
   | expression_type_arg {$1}
-  | expression_accessor {$1}
   -- expression_annotation can return a simple expression
   | parens(expression_annotation) {$1}
 
-expression_application :: {Expression}
-expression_application: expression_atom list1(expression_atom){
-  ApplicationExpression (getRange ($1,$2)) $1 $2
-}
+expression_accessor_field :: {Expression}
+expression_accessor_field: expression_atom Dot listSepBy1(meta_variable,Dot) {makeAccessor $1 (toList $3)}
+
+expression_accessor_funtion :: {Expression}
+expression_accessor_funtion : Hole Dot meta_variable {AccessorFunction (getRange ($1,$3)) $3}
+
+expression_accessor :: {Expression}
+expression_accessor : expression_accessor_field {$1}
+  | expression_accessor_funtion {$1}
   | expression_atom {$1}
+
+expression_application :: {Expression}
+expression_application: list1(expression_accessor){
+  case uncons $1 of 
+    (f , Nothing) -> f
+    (f ,Just args) ->
+      ApplicationExpression (getRange $1) f args
+}
 
 expression_operators_plus :: {IntercalatedList Expression Operator}
 expression_operators_plus :  expression_application {FirstItem $1}
@@ -312,16 +314,13 @@ expression_case_single :: {CaseCase}
 expression_case_single : pattern_match RightArrow expression {
   CaseCase (getRange ($1,$3)) $1 $3
   }
-  | pattern_match RightArrow  LayoutStart expression LayoutEnd{
-  CaseCase (getRange ($1,$4)) $1 $4
-}
 
 expression_case_cases :: {NonEmpty CaseCase}
 expression_case_cases : listSepBy1(expression_case_single,LayoutSeparator) {$1}
 
 expression_case :: {Expression}
-expression_case: Case expression Of expression_case_cases {SST.Case (getRange ($1,$4)) $2 $4}
-  | Case LayoutStart expression LayoutEnd Of expression_case_cases  {SST.Case (getRange ($1,$6)) $3 $6}
+expression_case: Case expression Of expression_case_single {SST.Case (getRange ($1,$4)) $2 (singleton $4)}
+  | Case LayoutStart expression LayoutEnd Of expression_case_single  {SST.Case (getRange ($1,$6)) $3 (singleton $6)}
   | Case expression Of LayoutStart expression_case_cases  LayoutEnd {SST.Case (getRange ($1,$5)) $2 $5}
   | Case LayoutStart expression LayoutEnd Of LayoutStart expression_case_cases LayoutEnd {SST.Case (getRange ($1,$7)) $3 $7}
   | expression_operators {$1}

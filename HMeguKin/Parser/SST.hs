@@ -224,3 +224,10 @@ lexerOperator2Operator (Lexer.NonPrefixedOperator range value) =
 lexerOperator2Operator (Lexer.PrefixedOperator range value) =
   let (name, prefix) = fromJust $ splitStringByDot value
    in PrefixedOperator range prefix name
+
+-- maybe use foldl
+makeAccessor :: Expression -> [Variable] -> Expression
+makeAccessor exp [] = exp
+makeAccessor exp (last : ls) =
+  let accessor = Accessor (getRange (exp, last)) exp last
+   in makeAccessor accessor ls
