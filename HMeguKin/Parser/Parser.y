@@ -50,6 +50,9 @@ import HMeguKin.Parser.SST qualified as SST
   Right_ {Right_ $$}
   None {None $$}
   Pipe {Pipe $$}
+  As {As $$}
+  Unqualified {Unqualified $$}
+  Import {Import $$}
 
 %%
 
@@ -76,6 +79,7 @@ module_statement : data_type {$1}
   | variable_declaration {$1}
   | pattern_declaration {$1}
   | operator_fixity {$1}
+  | module_import {ModuleImport (getRange $1) $1}
 
 
 meta_variable :: {Variable}
@@ -362,6 +366,53 @@ expression_let: Let LayoutStart expression_let_inside LayoutEnd In LayoutStart e
 
 expression :: {Expression}
 expression : expression_let {$1}
+
+-- _________________________ Imports/Exports ______________
+
+import_constructor :: {Variable}
+import_constructor : meta_variable {$1}
+
+import_constructors :: {NonEmpty Variable}
+import_constructors : listSepBy1(import_constructor,Comma) {$1}
+
+import_type :: {ImportItem}
+import_type : meta_variable {ImportTypeOrVar (getRange $1) $1 []}
+  | meta_variable parens(import_constructors) {ImportTypeOrVar (getRange ($1,$2)) $1 (toList $2)}
+
+import_operator :: {ImportItem}
+import_operator : meta_operator {ImportTermOperator (getRange $1) $1}
+  | Type meta_operator{ImportTypeOperator (getRange ($1,$2)) $2}
+
+module_import_item :: {ImportItem}
+module_import_item : import_type {$1} | import_operator {$1}
+
+module_import_items :: {NonEmpty ImportItem}
+module_import_items : listSepBy1(module_import_item,Comma) {$1}
+
+module_import :: {Import}
+module_import : Import meta_variable As meta_variable {ImportAs (getRange ($2,$4)) $2 [] $4}
+  | Import meta_variable parens(module_import_items) As meta_variable {ImportAs (getRange ($2,$5)) $2 (toList $3) $5}
+  | Import meta_variable {ImportSimple (getRange $2) $2 []}
+
+
+{- 
+export_constructor : CAPITALIZED_IDENTIFIER | PREFIXED_CAPITALIZED
+
+export_constructors : sep_by1{export_constructor,COMMA}
+
+export_type : (CAPITALIZED_IDENTIFIER| PREFIXED_CAPITALIZED) [parens{export_constructors}]
+
+export_function : PREFIXED_VARIABLE | VARIABLE_IDENTIFIER
+
+export_operator : [TYPE] (PREFIXED_OPERATOR | OPERATOR)
+
+module_export : export_type | export_function | export_operator
+
+module_exports : sep_by1{module_export,COMMA}
+
+-}
+
+-- _________________________ ModuleLevel __________________
 
 
 variable_declaration :: {ModuleStatement}

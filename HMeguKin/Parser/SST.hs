@@ -183,13 +183,33 @@ instance HasRange OperatorKind where
   getRange (RightOperator r) = r
   getRange (NoneOperator r) = r
 
+data ImportItem
+  = ImportTypeOrVar Range Variable [Variable]
+  | ImportTypeOperator Range Operator
+  | ImportTermOperator Range Operator
+  deriving stock (Show)
+
+instance HasRange ImportItem where
+  getRange (ImportTypeOrVar r _ _) = r
+  getRange (ImportTypeOperator r _) = r
+  getRange (ImportTermOperator r _) = r
+
+data Import
+  = ImportAs Range Variable [ImportItem] Variable
+  | ImportSimple Range Variable [ImportItem]
+  deriving stock (Show)
+
+instance HasRange Import where
+  getRange (ImportAs r _ _ _) = r
+  getRange (ImportSimple r _ _) = r
+
 data ModuleStatement
   = ModuleVariableDeclaration Range Variable Type
   | ModulePatternDefinition Range Pattern Expression
   | ModuleDataType Range Variable [Variable] (NonEmpty Constructor)
   | ModuleOperatorFixity Range Operator OperatorFixity OperatorKind Int
-  | ModuleImports
-  | ModuleExports
+  | ModuleImport Range Import
+  | ModuleExport
   deriving stock (Show)
 
 data ParsedModule = ParsedModule String [ModuleStatement]
