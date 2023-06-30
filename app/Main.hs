@@ -10,7 +10,7 @@ import HMeguKin.Parser.Types (token2Name)
 main :: IO ()
 main = do
   putStrLn "Hello, Haskell!"
-  let values = lexer "1"
+  let values = lexer "1 = let a = b in c"
   print values
   let indented = indent values
   print $ token2Name <$> indented
