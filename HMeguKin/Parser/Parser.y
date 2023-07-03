@@ -182,7 +182,10 @@ type_operators_plus :  type_application {FirstItem $1}
 
 type_operators :: {Type}
 type_operators : type_operators_plus {
-  MeaninglessOperatorsType (getRange $1) $1
+  case $1 of 
+    FirstItem e -> e
+    _ ->
+      MeaninglessOperatorsType  (getRange $1) $1
   }
 
 type_expression_inner :: {Type}
@@ -311,7 +314,10 @@ expression_operators_plus :  expression_application {FirstItem $1}
 
 expression_operators :: {Expression}
 expression_operators : expression_operators_plus {
-  MeaninglessOperatorsExpression  (getRange $1) $1
+  case $1 of 
+    FirstItem e -> e
+    _ ->
+      MeaninglessOperatorsExpression  (getRange $1) $1
   }
 
 expression_case_single :: {CaseCase}

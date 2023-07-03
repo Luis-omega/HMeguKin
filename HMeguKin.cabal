@@ -120,6 +120,8 @@ library
     ,array
     ,bytestring^>=0.11.3.1
     ,split
+    ,prettyprinter
+    ,text
   exposed-modules: 
     HMeguKin.Parser.Lexer
     HMeguKin.Parser.Types
