@@ -31,9 +31,9 @@ import HMeguKin.Parser.SST qualified as SST
   Colon {Colon $$}
   Comma {Comma $$}
   BackTick {BackTick $$}
-  LayoutStart {LayoutStart $$}
-  LayoutSeparator {LayoutSeparator $$}
-  LayoutEnd {LayoutEnd $$}
+  LayoutStart {LayoutStart $$ _}
+  LayoutSeparator {LayoutSeparator $$ _}
+  LayoutEnd {LayoutEnd $$ _}
   RightArrow {RightArrow $$}
   TokenOperator {TokenOperator _ _}
   Forall {Forall $$}

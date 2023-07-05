@@ -29,6 +29,7 @@ import HMeguKin.Parser.Types qualified as Types
 data LayoutContext
   = IndentAtNextToken {start :: Lexer.Token, next :: Lexer.Token}
   | Root
+  deriving stock (Show)
 
 -- \| ForgetIndent Token
 
@@ -44,7 +45,7 @@ consume EOFStream = (Lexer.EOF, EOFStream)
 
 list2Stream :: [Lexer.Token] -> Stream
 list2Stream [] = EOFStream
-list2Stream (x : xs) = (Peek x xs)
+list2Stream (x : xs) = Peek x xs
 
 peek :: Stream -> Lexer.Token
 peek (Peek t _) = t
@@ -98,7 +99,6 @@ token2Name token =
     Lexer.LexerError _ _ _ -> "LexerError"
 
 -- TODO: MOve to lexer.x
--- FIXME
 token2Range :: Lexer.Token -> Range
 token2Range token =
   case token of
@@ -189,8 +189,11 @@ alexToken2token token =
     Lexer.EOF -> EOF
     Lexer.LexerError range char remain -> LexerError range char remain
 
-makeLayout :: (Range -> Token) -> Lexer.Token -> Token
-makeLayout constructor = constructor . token2Range
+makeLayout :: (Range -> Token -> Token) -> Lexer.Token -> Token
+makeLayout constructor lexerToken =
+  constructor
+    (token2Range lexerToken)
+    (alexToken2token lexerToken)
 
 makeContextAtNextToken ::
   Lexer.Token ->

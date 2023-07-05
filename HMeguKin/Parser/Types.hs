@@ -99,9 +99,9 @@ data Token
   | LexerError Range Char String
   | EOF
   | TokenIndenterError Range IndenterError
-  | LayoutStart Range
-  | LayoutEnd Range
-  | LayoutSeparator Range
+  | LayoutStart Range Token
+  | LayoutEnd Range Token
+  | LayoutSeparator Range Token
   deriving stock (Show, Eq)
 
 data Variable
@@ -168,9 +168,9 @@ instance HasRange Token where
   getRange (LexerError range _ _) = range
   getRange EOF = Range 0 0 0 0 0 0
   getRange (TokenIndenterError range _) = range
-  getRange (LayoutStart range) = range
-  getRange (LayoutEnd range) = range
-  getRange (LayoutSeparator range) = range
+  getRange (LayoutStart range _) = range
+  getRange (LayoutEnd range _) = range
+  getRange (LayoutSeparator range _) = range
 
 token2Name :: Token -> String
 token2Name token =
@@ -217,6 +217,6 @@ token2Name token =
     EOF -> "EOF"
     LexerError _ _ _ -> "LexerError"
     TokenIndenterError _ _ -> "TokenIndenterError"
-    LayoutStart _ -> "LayoutStart"
-    LayoutEnd _ -> "LayoutEnd"
-    LayoutSeparator _ -> "LayoutSeparator"
+    LayoutStart _ _ -> "LayoutStart"
+    LayoutEnd _ _ -> "LayoutEnd"
+    LayoutSeparator _ _ -> "LayoutSeparator"
