@@ -3,27 +3,10 @@ module HMeguKin.Parser.SST where
 import Data.List.NonEmpty (NonEmpty ((:|)), intersperse, toList)
 import Data.List.Split (splitOn)
 import Data.Maybe (fromJust)
-import Data.Text (pack)
-import HMeguKin.Parser.Types (Range, mergeRanges)
+import HMeguKin.Parser.Types (HasRange (getRange), Range, mergeRanges)
 import HMeguKin.Parser.Types qualified as Lexer
 import HMeguKin.Parser.Types qualified as Types
-import Prettyprinter (Doc, Pretty (pretty), align, colon, comma, concatWith, encloseSep, group, hang, hardline, hsep, nest, parens, sep, softline, vsep, (<+>))
-
-class HasRange a where
-  getRange :: a -> Range
-
-instance HasRange Range where
-  getRange x = x
-
-instance (HasRange a) => HasRange (NonEmpty a) where
-  getRange lst = foldr1 mergeRanges (getRange <$> lst)
-
-instance (HasRange a, HasRange b) => HasRange (a, b) where
-  getRange (x, y) = mergeRanges (getRange x) (getRange y)
-
-instance (HasRange a, HasRange b, HasRange c) => HasRange (a, b, c) where
-  getRange (x, y, c) =
-    mergeRanges (mergeRanges (getRange x) (getRange y)) (getRange c)
+import Prettyprinter (Doc, Pretty (pretty), align, colon, comma, encloseSep, group, hang, hardline, hsep, nest, parens, punctuate, sep, softline, vsep, (<+>))
 
 prettyMaybeWithParens ::
   forall a ann.
@@ -345,7 +328,7 @@ instance Pretty Expression where
       needParens (ApplicationType {}) = True
       needParens (TypeArrow {}) = True
       needParens (TypeForall {}) = True
-  pretty (Accessor r e v) =
+  pretty (Accessor _ e v) =
     case e of
       (VariableExpression _ _) -> pretty e <> pretty '.' <> pretty v
       _ -> parens (pretty e) <> pretty '.' <> pretty v
@@ -407,12 +390,14 @@ instance Pretty Expression where
   pretty (Let _ bs e) =
     (group . align)
       ( pretty @String "let"
-          <> hardline
-          <> hang 2 (foldr1 (<>) $ intersperse hardline (pretty <$> bs))
+          <> nest 2 (hardline <> foldr1 (<>) (intersperse hardline (pretty <$> bs)))
           <> hardline
           <> "in"
-          <> hardline
-          <> pretty e
+          <> nest
+            2
+            ( hardline
+                <> pretty e
+            )
       )
 
 data Constructor = Constructor Range Variable [Type]
@@ -420,6 +405,10 @@ data Constructor = Constructor Range Variable [Type]
 
 instance HasRange Constructor where
   getRange (Constructor r _ _) = r
+
+instance Pretty Constructor where
+  pretty (Constructor _ v ts) =
+    pretty v <+> hsep (punctuate (pretty ',') (pretty <$> ts))
 
 data OperatorFixity
   = IsTypeOperator Range
@@ -429,6 +418,10 @@ data OperatorFixity
 instance HasRange OperatorFixity where
   getRange (IsTypeOperator r) = r
   getRange (IsTermOperator r) = r
+
+instance Pretty OperatorFixity where
+  pretty (IsTypeOperator _) = pretty @String "type"
+  pretty (IsTermOperator _) = pretty @String "term"
 
 data OperatorKind
   = LeftOperator Range
@@ -441,6 +434,11 @@ instance HasRange OperatorKind where
   getRange (RightOperator r) = r
   getRange (NoneOperator r) = r
 
+instance Pretty OperatorKind where
+  pretty (LeftOperator _) = pretty @String "left"
+  pretty (RightOperator _) = pretty @String "right"
+  pretty (NoneOperator _) = pretty @String "none"
+
 data ImportItem
   = ImportTypeOrVar Range Variable [Variable]
   | ImportTypeOperator Range Operator
@@ -452,6 +450,13 @@ instance HasRange ImportItem where
   getRange (ImportTypeOperator r _) = r
   getRange (ImportTermOperator r _) = r
 
+instance Pretty ImportItem where
+  pretty (ImportTypeOrVar _ v []) = pretty v
+  pretty (ImportTypeOrVar _ v xs) =
+    pretty v <> parens (sep (punctuate comma $ pretty <$> xs))
+  pretty (ImportTypeOperator _ op) = pretty @String "type" <+> parens (pretty op)
+  pretty (ImportTermOperator _ op) = parens (pretty op)
+
 data Import
   = ImportAs Range Variable [ImportItem] Variable
   | ImportSimple Range Variable [ImportItem]
@@ -460,6 +465,26 @@ data Import
 instance HasRange Import where
   getRange (ImportAs r _ _ _) = r
   getRange (ImportSimple r _ _) = r
+
+instance Pretty Import where
+  pretty (ImportAs _ name [] qualifier) =
+    pretty @String "import"
+      <+> pretty name
+      <+> pretty @String "as"
+      <+> pretty qualifier
+  pretty (ImportAs _ name items qualifier) =
+    pretty @String "import"
+      <+> group
+        ( pretty name
+            <> parens (sep (punctuate comma $ pretty <$> items))
+            <> softline
+            <> pretty @String "as"
+            <+> pretty qualifier
+        )
+  pretty (ImportSimple _ name items) =
+    pretty @String "import"
+      <+> pretty name
+        <> parens (sep (punctuate comma $ pretty <$> items))
 
 data ModuleStatement
   = ModuleVariableDeclaration Range Variable Type
@@ -470,7 +495,53 @@ data ModuleStatement
   | ModuleExport
   deriving stock (Show)
 
+instance Pretty ModuleStatement where
+  pretty (ModuleVariableDeclaration _ v t) =
+    group $
+      pretty v
+        <> nest
+          2
+          ( softline
+              <> colon
+              <> softline
+              <> pretty t
+          )
+  pretty (ModulePatternDefinition _ p d) =
+    group $
+      pretty p
+        <+> pretty '='
+          <> nest
+            2
+            ( hardline
+                <> pretty d
+            )
+  pretty (ModuleDataType _ name vars constructors) =
+    group $
+      pretty name
+        <+> hsep (pretty <$> vars)
+          <> nest
+            2
+            ( softline
+                <> pretty '='
+                <> softline
+                <> hsep
+                  ( punctuate
+                      (hardline <> pretty '|')
+                      (pretty <$> toList constructors)
+                  )
+            )
+  pretty (ModuleOperatorFixity _ operator operatorFixity operatorKind level) =
+    pretty @String "operator"
+      <+> pretty operator
+      <+> pretty operatorFixity
+      <+> pretty operatorKind
+      <+> pretty level
+  pretty (ModuleImport _ imports) = pretty imports
+  pretty ModuleExport = pretty @String "module I don't know what to put here right now."
+
 data ParsedModule = ParsedModule String [ModuleStatement]
+
+-- instance Pretty ParsedModule where
 
 splitStringByDot :: String -> Maybe (String, NonEmpty String)
 splitStringByDot value =

@@ -7,6 +7,7 @@ import Prelude hiding(reverse)
 
 import HMeguKin.Parser.Types(Token(..),Range) 
 import HMeguKin.Parser.Types qualified as Types
+import HMeguKin.Parser.Monad(ParserMonad,monadicLexer)
 import HMeguKin.Parser.SST hiding (LiteralUint,Case,Let)
 import HMeguKin.Parser.SST qualified as SST
 import qualified Data.Array as Happy_Data_Array
@@ -3020,12 +3021,11 @@ happyReduction_163 (HappyAbsSyn15  happy_var_3)
 	)
 happyReduction_163 _ _ _  = notHappyAtAll 
 
-happyNewToken action sts stk [] =
-	action 139 139 notHappyAtAll (HappyState action) sts stk []
-
-happyNewToken action sts stk (tk:tks) =
-	let cont i = action i i tk (HappyState action) sts stk tks in
+happyNewToken action sts stk
+	= monadicLexer(\tk -> 
+	let cont i = action i i tk (HappyState action) sts stk in
 	case tk of {
+	EOF -> action 139 139 tk (HappyState action) sts stk;
 	TokenVariable _ happy_dollar_dollar -> cont 104;
 	Hole happy_dollar_dollar -> cont 105;
 	LiteralUint _ _ -> cont 106;
@@ -3061,43 +3061,30 @@ happyNewToken action sts stk (tk:tks) =
 	As happy_dollar_dollar -> cont 136;
 	Unqualified happy_dollar_dollar -> cont 137;
 	Import happy_dollar_dollar -> cont 138;
-	_ -> happyError' ((tk:tks), [])
-	}
+	_ -> happyError' (tk, [])
+	})
 
-happyError_ explist 139 tk tks = happyError' (tks, explist)
-happyError_ explist _ tk tks = happyError' ((tk:tks), explist)
+happyError_ explist 139 tk = happyError' (tk, explist)
+happyError_ explist _ tk = happyError' (tk, explist)
 
-newtype HappyIdentity a = HappyIdentity a
-happyIdentity = HappyIdentity
-happyRunIdentity (HappyIdentity a) = a
-
-instance Prelude.Functor HappyIdentity where
-    fmap f (HappyIdentity a) = HappyIdentity (f a)
-
-instance Applicative HappyIdentity where
-    pure  = HappyIdentity
-    (<*>) = ap
-instance Prelude.Monad HappyIdentity where
-    return = pure
-    (HappyIdentity p) >>= q = q p
-
-happyThen :: () => HappyIdentity a -> (a -> HappyIdentity b) -> HappyIdentity b
+happyThen :: () => ParserMonad a -> (a -> ParserMonad b) -> ParserMonad b
 happyThen = (Prelude.>>=)
-happyReturn :: () => a -> HappyIdentity a
+happyReturn :: () => a -> ParserMonad a
 happyReturn = (Prelude.return)
-happyThen1 m k tks = (Prelude.>>=) m (\a -> k a tks)
-happyReturn1 :: () => a -> b -> HappyIdentity a
-happyReturn1 = \a tks -> (Prelude.return) a
-happyError' :: () => ([(Token)], [Prelude.String]) -> HappyIdentity a
-happyError' = HappyIdentity Prelude.. parseError
-parse tks = happyRunIdentity happySomeParser where
- happySomeParser = happyThen (happyParse action_0 tks) (\x -> case x of {HappyAbsSyn4 z -> happyReturn z; _other -> notHappyAtAll })
+happyThen1 :: () => ParserMonad a -> (a -> ParserMonad b) -> ParserMonad b
+happyThen1 = happyThen
+happyReturn1 :: () => a -> ParserMonad a
+happyReturn1 = happyReturn
+happyError' :: () => ((Token), [Prelude.String]) -> ParserMonad a
+happyError' tk = parseError tk
+parse = happySomeParser where
+ happySomeParser = happyThen (happyParse action_0) (\x -> case x of {HappyAbsSyn4 z -> happyReturn z; _other -> notHappyAtAll })
 
 happySeq = happyDontSeq
 
 
-parseError :: ([Token],[String]) -> a
-parseError (_,pos) = error ("Parse error, expected:  " <> show pos)
+-- parseError :: ([Token],[String]) -> a
+parseError (tok,pos) = error ("Parse error, expected:  " <> show pos)
 {-# LINE 1 "templates/GenericTemplate.hs" #-}
 -- $Id: GenericTemplate.hs,v 1.26 2005/01/14 14:47:22 simonmar Exp $
 

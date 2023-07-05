@@ -5,8 +5,9 @@ import Data.List.NonEmpty(NonEmpty((:|)),cons,reverse,toList,uncons,singleton)
 import Data.List qualified as List
 import Prelude hiding(reverse)
 
-import HMeguKin.Parser.Types(Token(..),Range) 
+import HMeguKin.Parser.Types(Token(..),Range,HasRange(getRange)) 
 import HMeguKin.Parser.Types qualified as Types
+import HMeguKin.Parser.Monad(ParserMonad,monadicLexer,parseError)
 import HMeguKin.Parser.SST hiding (LiteralUint,Case,Let)
 import HMeguKin.Parser.SST qualified as SST
 
@@ -15,6 +16,8 @@ import HMeguKin.Parser.SST qualified as SST
 %name parse
 %tokentype { Token }
 %errorhandlertype explist
+%monad {ParserMonad}
+%lexer {monadicLexer} {EOF}
 %error { parseError }
 
 %token
@@ -449,9 +452,3 @@ operator_fixity : OperatorKeyword TokenOperator fixity precedence  UInt {
     _ -> error "This can't happend"
                                                                   }
 
--- TODO: Add operators a constructor and add it to patterns
-
-{
-parseError :: ([Token],[String]) -> a
-parseError (_,pos) = error ("Parse error, expected:  " <> show pos)
-}

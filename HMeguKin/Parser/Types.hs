@@ -4,10 +4,14 @@ module HMeguKin.Parser.Types
     Variable (..),
     Operator (..),
     IndenterError (..),
+    HasRange (getRange),
     token2Name,
     mergeRanges,
+    range2PartialTuple,
   )
 where
+
+import Data.List.NonEmpty (NonEmpty)
 
 data Range = Range
   { lineStart :: Int,
@@ -17,7 +21,7 @@ data Range = Range
     positionStart :: Int,
     positionEnd :: Int
   }
-  deriving stock (Show)
+  deriving stock (Show, Eq)
 
 mergeRanges :: Range -> Range -> Range
 mergeRanges range1 range2 =
@@ -32,6 +36,25 @@ mergeRanges range1 range2 =
           positionEnd = positionEnd range2
         }
     else mergeRanges range2 range1
+
+range2PartialTuple :: Range -> (Int, Int, Int)
+range2PartialTuple r = (lineStart r, columnStart r, positionStart r)
+
+class HasRange a where
+  getRange :: a -> Range
+
+instance HasRange Range where
+  getRange x = x
+
+instance (HasRange a) => HasRange (NonEmpty a) where
+  getRange lst = foldr1 mergeRanges (getRange <$> lst)
+
+instance (HasRange a, HasRange b) => HasRange (a, b) where
+  getRange (x, y) = mergeRanges (getRange x) (getRange y)
+
+instance (HasRange a, HasRange b, HasRange c) => HasRange (a, b, c) where
+  getRange (x, y, c) =
+    mergeRanges (mergeRanges (getRange x) (getRange y)) (getRange c)
 
 data Token
   = Comment Range String
@@ -79,29 +102,75 @@ data Token
   | LayoutStart Range
   | LayoutEnd Range
   | LayoutSeparator Range
-  deriving stock (Show)
+  deriving stock (Show, Eq)
 
 data Variable
   = NonCapitalized Range String
   | NonCapitalizedPrefixed Range String
   | Capitalized Range String
   | CapitalizedPrefixed Range String
-  deriving stock (Show)
+  deriving stock (Show, Eq)
 
 data Operator
   = NonPrefixedOperator Range String
   | PrefixedOperator Range String
-  deriving stock (Show)
+  deriving stock (Show, Eq)
 
 data IndenterError
-  = IndenterError
-  | -- Indentation introduction token name
+  = -- Indentation introduction token name
     UnexpectedEOF String
   | -- First token requested a context, second token is missindented
     ContextFirstValueBeforeStart Token Token
   | -- if this happen inside a imports, someone tried to import (=)
     MissIndentedAfterEqual Token Token
-  deriving stock (Show)
+  deriving stock (Show, Eq)
+
+instance HasRange Token where
+  getRange (Comment range _) = range
+  getRange (At range) = range
+  getRange (Hole range) = range
+  getRange (Colon range) = range
+  getRange (Equal range) = range
+  getRange (LambdaStart range) = range
+  getRange (Pipe range) = range
+  getRange (Dot range) = range
+  getRange (Comma range) = range
+  getRange (RightArrow range) = range
+  getRange (LeftArrow range) = range
+  getRange (LeftBrace range) = range
+  getRange (RightBrace range) = range
+  getRange (LeftBracket range) = range
+  getRange (RightBracket range) = range
+  getRange (LeftParen range) = range
+  getRange (RightParen range) = range
+  getRange (BackTick range) = range
+  getRange (Let range) = range
+  getRange (In range) = range
+  getRange (Case range) = range
+  getRange (Of range) = range
+  getRange (Forall range) = range
+  getRange (Data range) = range
+  getRange (Type range) = range
+  getRange (Term range) = range
+  getRange (NewType range) = range
+  getRange (Module range) = range
+  getRange (Import range) = range
+  getRange (Where range) = range
+  getRange (As range) = range
+  getRange (Left_ range) = range
+  getRange (Right_ range) = range
+  getRange (None range) = range
+  getRange (Unqualified range) = range
+  getRange (OperatorKeyword range) = range
+  getRange (TokenOperator range _) = range
+  getRange (LiteralUint range _) = range
+  getRange (TokenVariable range _) = range
+  getRange (LexerError range _ _) = range
+  getRange EOF = Range 0 0 0 0 0 0
+  getRange (TokenIndenterError range _) = range
+  getRange (LayoutStart range) = range
+  getRange (LayoutEnd range) = range
+  getRange (LayoutSeparator range) = range
 
 token2Name :: Token -> String
 token2Name token =

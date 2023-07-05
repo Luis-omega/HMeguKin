@@ -109,6 +109,8 @@ executable compiler
     build-depends:    
       base ^>=4.17.0.0
       ,HMeguKin
+      ,prettyprinter
+      ,transformers
     import:           common-lang
     hs-source-dirs:   app
     default-language: Haskell2010
@@ -122,12 +124,15 @@ library
     ,split
     ,prettyprinter
     ,text
+    ,mtl
+    ,transformers
   exposed-modules: 
     HMeguKin.Parser.Lexer
     HMeguKin.Parser.Types
     HMeguKin.Parser.Indenter
     HMeguKin.Parser.SST
     HMeguKin.Parser.Parser
+    HMeguKin.Parser.Monad
 
 test-suite HMeguKinTest
   import:         common-lang
