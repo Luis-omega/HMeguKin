@@ -30,6 +30,7 @@ data ParserError = ParserError
     range :: Range,
     expected :: [String]
   }
+  deriving stock (Show, Eq)
 
 type ParserMonad a = ReaderT [Token] (Either ParserError) a
 

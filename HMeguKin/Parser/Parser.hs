@@ -5,9 +5,9 @@ import Data.List.NonEmpty(NonEmpty((:|)),cons,reverse,toList,uncons,singleton)
 import Data.List qualified as List
 import Prelude hiding(reverse)
 
-import HMeguKin.Parser.Types(Token(..),Range) 
+import HMeguKin.Parser.Types(Token(..),Range,HasRange(getRange)) 
 import HMeguKin.Parser.Types qualified as Types
-import HMeguKin.Parser.Monad(ParserMonad,monadicLexer)
+import HMeguKin.Parser.Monad(ParserMonad,monadicLexer,parseError)
 import HMeguKin.Parser.SST hiding (LiteralUint,Case,Let)
 import HMeguKin.Parser.SST qualified as SST
 import qualified Data.Array as Happy_Data_Array
@@ -3036,9 +3036,9 @@ happyNewToken action sts stk
 	Colon happy_dollar_dollar -> cont 111;
 	Comma happy_dollar_dollar -> cont 112;
 	BackTick happy_dollar_dollar -> cont 113;
-	LayoutStart happy_dollar_dollar -> cont 114;
-	LayoutSeparator happy_dollar_dollar -> cont 115;
-	LayoutEnd happy_dollar_dollar -> cont 116;
+	LayoutStart happy_dollar_dollar _ -> cont 114;
+	LayoutSeparator happy_dollar_dollar _ -> cont 115;
+	LayoutEnd happy_dollar_dollar _ -> cont 116;
 	RightArrow happy_dollar_dollar -> cont 117;
 	TokenOperator _ _ -> cont 118;
 	Forall happy_dollar_dollar -> cont 119;
@@ -3083,8 +3083,7 @@ parse = happySomeParser where
 happySeq = happyDontSeq
 
 
--- parseError :: ([Token],[String]) -> a
-parseError (tok,pos) = error ("Parse error, expected:  " <> show pos)
+
 {-# LINE 1 "templates/GenericTemplate.hs" #-}
 -- $Id: GenericTemplate.hs,v 1.26 2005/01/14 14:47:22 simonmar Exp $
 

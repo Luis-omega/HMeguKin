@@ -145,7 +145,10 @@ test-suite HMeguKinTest
     , tasty
     , tasty-hspec
     , tasty-rerun
+    ,transformers
+      ,prettyprinter
 
   hs-source-dirs: tests
   other-modules:
     HMeguKin.Test.Parser.Indenter
+    HMeguKin.Test.Parser.ParserStage
